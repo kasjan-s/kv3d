@@ -1,0 +1,3 @@
+common --enable_bzlmod --enable_workspace 
+
+build --cxxopt="/std:c++17" -c opt --enable_runfiles

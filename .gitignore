@@ -1,0 +1,8 @@
+MODULE.bazel.lock
+
+bazel-bin/*
+bazel-kv3d/*
+bazel-out/*
+external/*
+
+compile_commands.json
