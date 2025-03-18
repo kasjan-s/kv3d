@@ -19,35 +19,52 @@ std::unique_ptr<Model> Model::loadFromFile(const std::string& file, VulkanDevice
         throw std::runtime_error(warn + err);
     }
 
-    std::vector<uint32_t> indices;
-    std::vector<Vertex> vertices;
-    std::unordered_map<Vertex, uint32_t> unique_vertices;
+    // std::vector<uint32_t> indices;
+    // std::vector<Vertex> vertices;
+    // std::unordered_map<Vertex, uint32_t> unique_vertices;
 
-    for (const auto& shape : shapes) {
-        for (const auto& index : shape.mesh.indices) {
-            Vertex vertex{};
+    // for (const auto& shape : shapes) {
+    //     for (const auto& index : shape.mesh.indices) {
+    //         Vertex vertex{};
 
-            vertex.pos = {
-                attrib.vertices[3 * index.vertex_index + 0],
-                attrib.vertices[3 * index.vertex_index + 1],
-                attrib.vertices[3 * index.vertex_index + 2]
-            };
+    //         vertex.pos = {
+    //             attrib.vertices[3 * index.vertex_index + 0],
+    //             attrib.vertices[3 * index.vertex_index + 1],
+    //             attrib.vertices[3 * index.vertex_index + 2]
+    //         };
 
-            vertex.tex_coords = {
-                attrib.texcoords[2 * index.texcoord_index + 0],
-                1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-            };
+    //         vertex.tex_coords = {
+    //             attrib.texcoords[2 * index.texcoord_index + 0],
+    //             1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+    //         };
 
-            vertex.color = {1.0f, 1.0f, 1.0f};
+    //         vertex.color = {1.0f, 1.0f, 1.0f};
 
-            if (unique_vertices.count(vertex) == 0) {
-                unique_vertices[vertex] = vertices.size();
-                vertices.push_back(vertex);
-            }
+    //         if (unique_vertices.count(vertex) == 0) {
+    //             unique_vertices[vertex] = vertices.size();
+    //             vertices.push_back(vertex);
+    //         }
 
-            indices.push_back(unique_vertices[vertex]);
-        }
-    }
+    //         indices.push_back(unique_vertices[vertex]);
+    //     }
+    // }
+    
+    std::vector<Vertex> vertices = {
+        {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+        {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+        {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+        {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
+    
+        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+        {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+        {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+        {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
+    };
+    
+    std::vector<uint32_t> indices = {
+        0, 1, 2, 2, 3, 0,
+        4, 5, 6, 6, 7, 4
+    };
     
     std::unique_ptr<Model> model(new Model(device, vertices, indices));
     return model;
