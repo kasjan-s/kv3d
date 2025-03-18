@@ -309,56 +309,19 @@ private:
     }
 
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& buffer_memory) {
-        VkBufferCreateInfo buffer_info{};
-        buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        buffer_info.size = size;
-        buffer_info.usage = usage;
-        buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-        if (vkCreateBuffer(*vulkan_device_, &buffer_info, nullptr, &buffer) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to create vertex buffer!");
-        }
-
-        VkMemoryRequirements mem_requirements;
-        vkGetBufferMemoryRequirements(*vulkan_device_, buffer, &mem_requirements);
-
-        VkMemoryAllocateInfo alloc_info{};
-        alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        alloc_info.allocationSize = mem_requirements.size;
-        alloc_info.memoryTypeIndex = findMemoryType(mem_requirements.memoryTypeBits, properties);
-
-        if (vkAllocateMemory(*vulkan_device_, &alloc_info, nullptr, &buffer_memory) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to allocate vertex buffer memory!");
-        }
-
-        vkBindBufferMemory(*vulkan_device_, buffer, buffer_memory, 0);
+        return vulkan_device_->createBuffer(size, usage, properties, buffer, buffer_memory);
     }
 
     void createDepthResources() {
         VkFormat depth_format = findDepthFormat();
-        createImage(swap_chain_extent_.width, swap_chain_extent_.height, depth_format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depth_image_, depth_image_memory_);
+        vulkan_device_->createImage(swap_chain_extent_.width, swap_chain_extent_.height, depth_format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depth_image_, depth_image_memory_);
         depth_image_view_ = createImageView(depth_image_, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT);
 
         transitionImageLayout(depth_image_, depth_format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
     }
 
-    VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
-        for (VkFormat format : candidates) {
-            VkFormatProperties props;
-            vkGetPhysicalDeviceFormatProperties(physical_device_, format, &props);
-
-            if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
-                return format;
-            } else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
-                return format;
-            }
-        }
-
-        throw std::runtime_error("Failed to find supported format!");
-    }
-    
     VkFormat findDepthFormat() {
-        return findSupportedFormat({VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT}, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+        return vulkan_device_->findSupportedFormat({VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT}, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
     }
 
     bool hasStencilComponent(VkFormat format) {
@@ -384,7 +347,7 @@ private:
         vkUnmapMemory(*vulkan_device_, staging_buffer_memory);
         stbi_image_free(pixels);
 
-        createImage(tex_width, tex_height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, texture_image_, texture_image_memory_);
+        vulkan_device_->createImage(tex_width, tex_height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, texture_image_, texture_image_memory_);
 
         transitionImageLayout(texture_image_, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
         copyBufferToImage(staging_buffer, texture_image_, tex_width, tex_height);
@@ -409,7 +372,7 @@ private:
         sampler_info.anisotropyEnable = VK_TRUE;
 
         VkPhysicalDeviceProperties properties{};
-        vkGetPhysicalDeviceProperties(physical_device_, &properties);
+        vkGetPhysicalDeviceProperties(vulkan_device_->getPhysicalDevice(), &properties);
 
         sampler_info.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
         sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
@@ -444,41 +407,6 @@ private:
         }
 
         return image_view;
-    }
-
-    void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& image_memory) {
-        VkImageCreateInfo image_info{};
-        image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-        image_info.imageType = VK_IMAGE_TYPE_2D;
-        image_info.extent.width = width;
-        image_info.extent.height = height;
-        image_info.extent.depth = 1;
-        image_info.mipLevels = 1;
-        image_info.arrayLayers = 1;
-        image_info.format = format;
-        image_info.tiling = tiling;
-        image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        image_info.usage = usage;
-        image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        image_info.samples = VK_SAMPLE_COUNT_1_BIT;
-        image_info.flags = 0;
-
-        if (vkCreateImage(*vulkan_device_, &image_info, nullptr, &image) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to create an image!");
-        }
-
-        VkMemoryRequirements mem_requirements;
-        vkGetImageMemoryRequirements(*vulkan_device_, image, &mem_requirements);
-        VkMemoryAllocateInfo alloc_info{};
-        alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        alloc_info.allocationSize = mem_requirements.size;
-        alloc_info.memoryTypeIndex = findMemoryType(mem_requirements.memoryTypeBits, properties);
-
-        if (vkAllocateMemory(*vulkan_device_, &alloc_info, nullptr, &image_memory) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to allocate image memory!");
-        }
-
-        vkBindImageMemory(*vulkan_device_, image, image_memory, 0);
     }
 
     void loadModel() {
@@ -679,8 +607,8 @@ private:
         submit_info.commandBufferCount = 1;
         submit_info.pCommandBuffers = &command_buffer;
 
-        vkQueueSubmit(graphics_queue_, 1, &submit_info, VK_NULL_HANDLE);
-        vkQueueWaitIdle(graphics_queue_);
+        vkQueueSubmit(vulkan_device_->getGraphicsQueue(), 1, &submit_info, VK_NULL_HANDLE);
+        vkQueueWaitIdle(vulkan_device_->getGraphicsQueue());
 
         vkFreeCommandBuffers(*vulkan_device_, command_pool_, 1, &command_buffer);
     }
@@ -775,21 +703,6 @@ private:
         endSingleTimeCommands(command_buffer);
     }
 
-    uint32_t findMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) {
-        VkPhysicalDeviceMemoryProperties mem_properties;
-        vkGetPhysicalDeviceMemoryProperties(physical_device_, &mem_properties);
-
-        for (uint32_t i = 0; i < mem_properties.memoryTypeCount; ++i) {
-            bool check_type = type_filter & (1 << i);
-            bool check_properties = (mem_properties.memoryTypes[i].propertyFlags & properties) == properties;
-            if (check_type && check_properties) {
-                return i;
-            }
-        }
-
-        throw std::runtime_error("Failed to find suitable memory type!");
-    }
-
     void createSyncObjects() {
         image_available_semaphores_.resize(kMaxFramesInFlight);
         render_finished_semaphores_.resize(kMaxFramesInFlight);
@@ -879,7 +792,7 @@ private:
     }
 
     void createCommandPool() {
-        QueueFamilyIndices queue_family_indices = findQueueFamilies(physical_device_);
+        QueueFamilyIndices queue_family_indices = findQueueFamilies(vulkan_device_->getPhysicalDevice());
 
         VkCommandPoolCreateInfo pool_info{};
         pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -1155,7 +1068,7 @@ private:
     }
 
     void createSwapChain() {
-        SwapChainSupportDetails swap_chain_support = querySwapChainSupport(physical_device_);
+        SwapChainSupportDetails swap_chain_support = querySwapChainSupport(vulkan_device_->getPhysicalDevice());
 
         VkSurfaceFormatKHR surface_format = chooseSwapSurfaceFormat(swap_chain_support.formats);
         VkPresentModeKHR present_mode = chooseSwapPresentMode(swap_chain_support.present_modes);
@@ -1177,7 +1090,7 @@ private:
         create_info.imageArrayLayers = 1;
         create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-        QueueFamilyIndices indices = findQueueFamilies(physical_device_);
+        QueueFamilyIndices indices = findQueueFamilies(vulkan_device_->getPhysicalDevice());
         uint32_t queue_family_indices[] = {indices.graphics_family.value(), indices.presentation_family.value()};
 
         if (indices.graphics_family != indices.presentation_family) {
@@ -1305,11 +1218,6 @@ private:
 
     void createVulkanDevice() {
         vulkan_device_ = std::make_unique<VulkanDevice>(instance_, surface_);
-        
-        physical_device_ = vulkan_device_->getPhysicalDevice();
-        // device_ = vulkan_device_->getLogicalDevice();
-        graphics_queue_ = vulkan_device_->getGraphicsQueue();
-        presentation_queue_ = vulkan_device_->getPresentationQueue();
     }
 
 
@@ -1383,7 +1291,7 @@ private:
         submit_info.signalSemaphoreCount = 1;
         submit_info.pSignalSemaphores = signal_semaphores;
 
-        if (vkQueueSubmit(graphics_queue_, 1, &submit_info, in_flight_fences_[current_frame_]) != VK_SUCCESS) {
+        if (vkQueueSubmit(vulkan_device_->getGraphicsQueue(), 1, &submit_info, in_flight_fences_[current_frame_]) != VK_SUCCESS) {
             throw std::runtime_error("Failed to submit draw command buffer!");
         }
 
@@ -1398,7 +1306,7 @@ private:
         present_info.pImageIndices = &image_index;
         present_info.pResults = nullptr;
 
-        result = vkQueuePresentKHR(presentation_queue_, &present_info);
+        result = vkQueuePresentKHR(vulkan_device_->getPresentationQueue(), &present_info);
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebuffer_resized_) {
             framebuffer_resized_ = false;
@@ -1479,15 +1387,12 @@ private:
     VkDescriptorSetLayout descriptor_set_layout_;
     bool framebuffer_resized_ = false;
     VkPipeline graphics_pipeline_;
-    VkQueue graphics_queue_;
     std::vector<VkFence> in_flight_fences_;
     VkBuffer index_buffer_;
     VkDeviceMemory index_buffer_memory_;
     VkInstance instance_;
     std::vector<VkSemaphore> image_available_semaphores_;
-    VkPhysicalDevice physical_device_ = VK_NULL_HANDLE;
     VkPipelineLayout pipeline_layout_;
-    VkQueue presentation_queue_;
     std::vector<VkSemaphore> render_finished_semaphores_;
     VkRenderPass render_pass_;
     Runfiles* runfiles_;
