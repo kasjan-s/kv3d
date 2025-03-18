@@ -2,8 +2,11 @@ cc_binary(
     name = "kv3d",
     srcs = ["kv3d.cc"],
     deps = [
-        "//third_party:stb_image",
-        "//third_party:tiny_obj_loader",
+        ":model",
+        ":vertex",
+        ":vulkan_device",
+        ":vulkan_swapchain",
+        ":vulkan_texture",
         "@glfw//:glfw",
         "@glm//:glm",
         "@rules_vulkan//vulkan:vulkan_cc_library",
@@ -16,4 +19,74 @@ cc_binary(
         "//main/textures:textures",
         "//main/models:models"
     ],
+)
+
+cc_library(
+    name = "vertex",
+    srcs = ["vertex.cc"],
+    hdrs = ["vertex.h"],
+    deps = [
+        "@glm//:glm",
+        "@rules_vulkan//vulkan:vulkan_cc_library",
+    ]
+)
+
+cc_library(
+    name = "vulkan_device",
+    srcs = ["vulkan_device.cc"],
+    hdrs = ["vulkan_device.h"],
+    deps = [
+        ":vulkan_buffer",
+        ":vulkan_constants",
+        "@glfw//:glfw",
+        "@rules_vulkan//vulkan:vulkan_cc_library",
+    ]
+)
+
+cc_library(
+    name = "vulkan_swapchain",
+    srcs = ["vulkan_swapchain.cc"],
+    hdrs = ["vulkan_swapchain.h"],
+    deps = [
+        ":vulkan_constants",
+        ":vulkan_device",
+        "@glfw//:glfw",
+        "@rules_vulkan//vulkan:vulkan_cc_library",
+    ]
+)
+
+cc_library(
+    name = "vulkan_constants",
+    hdrs = ["vulkan_constants.h"]
+)
+
+cc_library(
+    name = "vulkan_buffer",
+    hdrs = ["vulkan_buffer.h"]
+)
+
+cc_library(
+    name = "vulkan_texture",
+    srcs = ["texture.cc"],
+    hdrs = ["texture.h"],
+    deps = [
+        ":vulkan_buffer",
+        ":vulkan_constants",
+        ":vulkan_device",
+        "//third_party:stb_image",
+        "@rules_vulkan//vulkan:vulkan_cc_library",
+    ]
+)
+
+cc_library(
+    name = "model",
+    srcs = ["model.cc"],
+    hdrs = ["model.h"],
+    deps = [
+        ":vertex",
+        ":vulkan_device",
+        "//third_party:tiny_obj_loader",
+        "@glfw//:glfw",
+        "@rules_vulkan//vulkan:vulkan_cc_library",
+    ]
 )
