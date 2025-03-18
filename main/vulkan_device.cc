@@ -75,7 +75,12 @@ VulkanDevice::VulkanDevice(VkInstance instance, VkSurfaceKHR surface)
     pickPhysicalDevice(instance);
     queue_family_indices_ = QueueFamilyIndices(physical_device_, surface);
     createLogicalDevice();
-    command_pool_ = createCommandPool();
+    // command_pool_ = createCommandPool();
+}
+
+VulkanDevice::~VulkanDevice() {
+    // vkDestroyCommandPool(logical_device_, command_pool_, nullptr);
+    vkDestroyDevice(logical_device_, nullptr);
 }
 
 void VulkanDevice::createLogicalDevice() {
@@ -239,7 +244,6 @@ VkCommandPool VulkanDevice::createCommandPool() {
 
     VkCommandPool command_pool;
     vkCreateCommandPool(logical_device_, &pool_info, nullptr, &command_pool);
-    // VK_CHECK_RESULT(vkCreateCommandPool(logical_device_, &pool_info, nullptr, &command_pool));
     
     return command_pool;
 }
@@ -270,7 +274,7 @@ void VulkanDevice::createBuffer(Buffer& buffer) {
     return createBuffer(buffer.size, buffer.usage_flags, buffer.property_flags, buffer.buffer, buffer.memory);
 }
 
-void VulkanDevice::pickPhysicalDevice(VkInstance instance) {
+VkPhysicalDevice VulkanDevice::pickPhysicalDevice(VkInstance instance) {
     uint32_t device_count = 0;
     vkEnumeratePhysicalDevices(instance, &device_count, nullptr);
 
@@ -284,7 +288,7 @@ void VulkanDevice::pickPhysicalDevice(VkInstance instance) {
     for (const auto& device : devices) {
         if (isDeviceSuitable(device)) {
             physical_device_ = device;
-            break;
+            return device;
         }
     }
 

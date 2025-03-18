@@ -71,6 +71,7 @@ class VulkanDevice {
 public:
     VulkanDevice() = default;
     VulkanDevice(VkInstance instance, VkSurfaceKHR surface);
+    ~VulkanDevice();
 
     void createLogicalDevice();
 
@@ -95,12 +96,16 @@ public:
 
     void submitCommandBuffer(VkCommandBuffer command_buffer, VkQueue queue);
 
+    VkDevice getLogicalDevice() const {
+        return logical_device_;
+    }
+
     operator VkDevice() const {
         return logical_device_;
     }
 
 private:
-    void pickPhysicalDevice(VkInstance instance);
+    VkPhysicalDevice pickPhysicalDevice(VkInstance instance);
     bool isDeviceSuitable(VkPhysicalDevice device);
     VkCommandPool createCommandPool();
     bool checkDeviceExtensionSupport(VkPhysicalDevice device);
