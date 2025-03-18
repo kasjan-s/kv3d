@@ -1,0 +1,37 @@
+Name: Kasjan Siwek
+sunet id: kasjan
+
+Project Title - kv3d - Kasjan's Viewer 3d
+
+Project goals:
+The project's focus was learning Vulkan and producing a 3d renderer capable of displaying .obj. 
+Per my proposal, it was supposed to visualize 3d objects similar to how Cardinal3D does, including
+a moving camera, and support for lighting and materials. 
+
+
+Project state:
+Unfortunately I have failed to achieve these goals, so I don't expect a lot of points (if any).
+
+The current state of the project is:
+1. It compiles and runs (on Windows at least, haven't tried other platforms)
+2. Doesn't output visible images
+    - It did in the initial commit - https://github.com/kasjan-s/kv3d/commit/1db5e76577f18028da9df264ff3094f79300046d
+        - That commit is not interesting, as it's literally http://vulkan-tutorial.com with stylistic changes and bazel build
+    - There must be a bug in how I draw and present images. Probably something fairly simple, but I ran out of time
+3. No warnings during run-time, but validation layer complains about cleanup during destruction. That was low priority.
+
+
+Overview:
+My main goal was grokking Vulkan and its data flow and that was mostly succesful, so in this it was a success.
+I started with http://vulkan-tutorial.com and that gave me good intro on what individual low-level elements do.
+But it didn't describe Vulkan at high level, so afterwards I still didn't "get it", and I had trouble editing the 
+code to display two seperate objects at once.
+
+I kept exploring more materials, and what helped me the most in the end were:
+- overview videos from GetIntoGameDev - https://www.youtube.com/watch?v=2NVlG9TFT1c
+- excellent examples from SaschaWillems - https://github.com/SaschaWillems/Vulkan/tree/master 
+Sascha's abstractions made a lot of sense to me, so I decided to refactor my code by extracting similar abstractions.
+I also added models and textures from https://github.com/stanford-cs248/shading , as I wanted to recreate those visuals
+and follow-up with shading. As that's next on my TO-LEARN list.
+
+But I ran out of time, so right now (3/17/2025) this code is basically a blend above resources.
