@@ -11,13 +11,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/hash.hpp>
 
-// #define STB_IMAGE_IMPLEMENTATION
-// #include "third_party/stb_image.h"
-
-#define TINYOBJLOADER_IMPLEMENTATION
-#include "third_party/tiny_obj_loader.h"
-
 #include "main/vulkan_device.h"
+#include "main/model.h"
 #include "main/vulkan_swapchain.h"
 #include "main/texture.h"
 
@@ -44,72 +39,6 @@ struct UniformBufferObject {
     glm::mat4 view;
     glm::mat4 proj;
 };
-
-struct Vertex {
-    glm::vec3 pos;
-    glm::vec3 color;
-    glm::vec2 tex_coords;
-
-    static VkVertexInputBindingDescription getBindingDescription() {
-        VkVertexInputBindingDescription binding_description{};
-        binding_description.binding = 0;
-        binding_description.stride = sizeof(Vertex);
-        binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-        return binding_description;
-    };
-
-    static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
-        std::array<VkVertexInputAttributeDescription, 3> attribute_descriptions{};
-        attribute_descriptions[0].binding = 0;
-        attribute_descriptions[0].location = 0;
-        attribute_descriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attribute_descriptions[0].offset = offsetof(Vertex, pos);
-
-        attribute_descriptions[1].binding = 0;
-        attribute_descriptions[1].location = 1;
-        attribute_descriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attribute_descriptions[1].offset = offsetof(Vertex, color);
-
-        attribute_descriptions[2].binding = 0;
-        attribute_descriptions[2].location = 2;
-        attribute_descriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-        attribute_descriptions[2].offset = offsetof(Vertex, tex_coords);
-
-        return attribute_descriptions;
-    }
-
-    bool operator==(const Vertex& other) const {
-        return pos == other.pos && color == other.color && tex_coords == other.tex_coords;
-    }
-};
-
-namespace std {
-    template<> struct hash<Vertex> {
-        size_t operator()(Vertex const& vertex) const {
-            return ((hash<glm::vec3>()(vertex.pos) ^
-                   (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
-                   (hash<glm::vec2>()(vertex.tex_coords) << 1);
-        }
-    };
-}
-
-// const std::vector<Vertex> vertices = {
-//     {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-//     {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-//     {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-//     {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}} ,
-    
-//     {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-//     {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-//     {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-//     {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}  
-// };
-
-// const std::vector<uint32_t> indices = {
-//     0, 1, 2, 2, 3, 0,
-//     4, 5, 6, 6, 7, 4
-// };
 
 bool checkValidationLayerSupport() {
     uint32_t layer_count;
@@ -259,19 +188,13 @@ private:
         swapchain_ = VulkanSwapchain::createSwapChain(vulkan_device_.get(), surface_, window_);
 
         createRenderPass();
-
         createDescriptorSetLayout();
-
         createGraphicsPipeline();
-        
         createFramebuffers();
         createTexture();
-        // createTextureImage();
-        // createTextureImageView();
-        // createTextureSampler();
-        loadModel();
-        createVertexBuffer();
-        createIndexBuffer();
+
+        model_ = Model::loadFromFile(MODEL_PATH, vulkan_device_.get());
+
         createUniformBuffers();
         createDescriptorPool();
         createDescriptorSets();
@@ -340,87 +263,6 @@ private:
         }
 
         return image_view;
-    }
-
-    void loadModel() {
-        tinyobj::attrib_t attrib;
-        std::vector<tinyobj::shape_t> shapes;
-        std::vector<tinyobj::material_t> materials;
-        std::string warn, err;
-
-        if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH.c_str())) {
-            throw std::runtime_error(warn + err);
-        }
-
-        std::unordered_map<Vertex, uint32_t> unique_vertices{};
-
-        for (const auto& shape : shapes) {
-            for (const auto& index : shape.mesh.indices) {
-                Vertex vertex{};
-
-                vertex.pos = {
-                    attrib.vertices[3 * index.vertex_index + 0],
-                    attrib.vertices[3 * index.vertex_index + 1],
-                    attrib.vertices[3 * index.vertex_index + 2]
-                };
-
-                vertex.tex_coords = {
-                    attrib.texcoords[2 * index.texcoord_index + 0],
-                    1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-                };
-
-                vertex.color = {1.0f, 1.0f, 1.0f};
-
-                if (unique_vertices.count(vertex) == 0) {
-                    unique_vertices[vertex] = vertices_.size();
-                    vertices_.push_back(vertex);
-                }
-
-                indices_.push_back(unique_vertices[vertex]);
-            }
-        }
-    }
-
-    void createVertexBuffer() {
-        VkDeviceSize buffer_size = sizeof(vertices_[0]) * vertices_.size();
-        VkMemoryPropertyFlags property_flags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-
-        VkBuffer staging_buffer;
-        VkDeviceMemory staging_buffer_memory;
-        createBuffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, property_flags, staging_buffer, staging_buffer_memory);
-
-        void* data;
-        vkMapMemory(*vulkan_device_, staging_buffer_memory, 0, buffer_size, 0, &data);
-        std::memcpy(data, vertices_.data(), buffer_size);
-        vkUnmapMemory(*vulkan_device_, staging_buffer_memory);
-
-        createBuffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertex_buffer_, vertex_buffer_memory_);
-
-        copyBuffer(staging_buffer, vertex_buffer_, buffer_size);
-
-        vkDestroyBuffer(*vulkan_device_, staging_buffer, nullptr);
-        vkFreeMemory(*vulkan_device_, staging_buffer_memory, nullptr);
-    }
-
-    void createIndexBuffer() {
-        VkDeviceSize buffer_size = sizeof(indices_[0]) * indices_.size();
-
-        VkBuffer staging_buffer;
-        VkDeviceMemory staging_buffer_memory;
-        createBuffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging_buffer, staging_buffer_memory);
-
-        void* data;
-        vkMapMemory(*vulkan_device_, staging_buffer_memory, 0, buffer_size, 0, &data);
-        std::memcpy(data, indices_.data(), buffer_size);
-        vkUnmapMemory(*vulkan_device_, staging_buffer_memory);
-
-        createBuffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, index_buffer_, index_buffer_memory_);
-
-        copyBuffer( staging_buffer, index_buffer_, buffer_size);
-
-        vkDestroyBuffer(*vulkan_device_, staging_buffer, nullptr);
-        vkFreeMemory(*vulkan_device_, staging_buffer_memory, nullptr);
-
     }
 
     void createUniformBuffers() {
@@ -661,13 +503,8 @@ private:
         scissor.extent = extent;
         vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
-        VkBuffer vertex_buffers[] = {vertex_buffer_};
-        VkDeviceSize offsets[] = {0};
-        vkCmdBindVertexBuffers(command_buffer, 0, 1, vertex_buffers, offsets);
-        vkCmdBindIndexBuffer(command_buffer, index_buffer_, 0, VK_INDEX_TYPE_UINT32);
+        model_->draw(command_buffer, pipeline_layout_, descriptor_sets_[current_frame_]);
 
-        vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout_, 0, 1, &descriptor_sets_[current_frame_], 0, nullptr);
-        vkCmdDrawIndexed(command_buffer, indices_.size(), 1, 0, 0, 0);
         vkCmdEndRenderPass(command_buffers_[current_frame_]);
         if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS) {
             throw std::runtime_error("Failed to record command buffer!");
@@ -1091,11 +928,7 @@ private:
         vkDestroyDescriptorPool(*vulkan_device_, descriptor_pool_, nullptr);
         vkDestroyDescriptorSetLayout(*vulkan_device_, descriptor_set_layout_, nullptr);
 
-        vkDestroyBuffer(*vulkan_device_, index_buffer_, nullptr);
-        vkFreeMemory(*vulkan_device_, index_buffer_memory_, nullptr);
-
-        vkDestroyBuffer(*vulkan_device_, vertex_buffer_, nullptr);
-        vkFreeMemory(*vulkan_device_, vertex_buffer_memory_, nullptr);
+        model_.reset();
 
         for (int i = 0; i < kMaxFramesInFlight; ++i) {
             vkDestroySemaphore(*vulkan_device_, image_available_semaphores_[i], nullptr);
@@ -1125,8 +958,6 @@ private:
     bool framebuffer_resized_ = false;
     VkPipeline graphics_pipeline_;
     std::vector<VkFence> in_flight_fences_;
-    VkBuffer index_buffer_;
-    VkDeviceMemory index_buffer_memory_;
     VkInstance instance_;
     std::vector<VkSemaphore> image_available_semaphores_;
     VkPipelineLayout pipeline_layout_;
@@ -1137,11 +968,10 @@ private:
     std::unique_ptr<VulkanSwapchain> swapchain_;
     std::vector<VkFramebuffer> swap_chain_framebuffers_;
     std::unique_ptr<Texture> texture_;
+    std::unique_ptr<Model> model_;
     std::vector<VkBuffer> uniform_buffers_;
     std::vector<VkDeviceMemory> uniform_buffers_memory_;
     std::vector<void*> uniform_buffers_mapped_;
-    VkBuffer vertex_buffer_;    
-    VkDeviceMemory vertex_buffer_memory_;
 
     std::vector<Vertex> vertices_;
     std::vector<uint32_t> indices_;

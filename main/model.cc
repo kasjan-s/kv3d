@@ -19,52 +19,35 @@ std::unique_ptr<Model> Model::loadFromFile(const std::string& file, VulkanDevice
         throw std::runtime_error(warn + err);
     }
 
-    // std::vector<uint32_t> indices;
-    // std::vector<Vertex> vertices;
-    // std::unordered_map<Vertex, uint32_t> unique_vertices;
+    std::vector<uint32_t> indices;
+    std::vector<Vertex> vertices;
+    std::unordered_map<Vertex, uint32_t> unique_vertices;
 
-    // for (const auto& shape : shapes) {
-    //     for (const auto& index : shape.mesh.indices) {
-    //         Vertex vertex{};
+    for (const auto& shape : shapes) {
+        for (const auto& index : shape.mesh.indices) {
+            Vertex vertex{};
 
-    //         vertex.pos = {
-    //             attrib.vertices[3 * index.vertex_index + 0],
-    //             attrib.vertices[3 * index.vertex_index + 1],
-    //             attrib.vertices[3 * index.vertex_index + 2]
-    //         };
+            vertex.pos = {
+                attrib.vertices[3 * index.vertex_index + 0],
+                attrib.vertices[3 * index.vertex_index + 1],
+                attrib.vertices[3 * index.vertex_index + 2]
+            };
 
-    //         vertex.tex_coords = {
-    //             attrib.texcoords[2 * index.texcoord_index + 0],
-    //             1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-    //         };
+            vertex.tex_coords = {
+                attrib.texcoords[2 * index.texcoord_index + 0],
+                1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+            };
 
-    //         vertex.color = {1.0f, 1.0f, 1.0f};
+            vertex.color = {1.0f, 1.0f, 1.0f};
 
-    //         if (unique_vertices.count(vertex) == 0) {
-    //             unique_vertices[vertex] = vertices.size();
-    //             vertices.push_back(vertex);
-    //         }
+            if (unique_vertices.count(vertex) == 0) {
+                unique_vertices[vertex] = vertices.size();
+                vertices.push_back(vertex);
+            }
 
-    //         indices.push_back(unique_vertices[vertex]);
-    //     }
-    // }
-    
-    std::vector<Vertex> vertices = {
-        {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-    
-        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
-    };
-    
-    std::vector<uint32_t> indices = {
-        0, 1, 2, 2, 3, 0,
-        4, 5, 6, 6, 7, 4
-    };
+            indices.push_back(unique_vertices[vertex]);
+        }
+    }
     
     std::unique_ptr<Model> model(new Model(device, vertices, indices));
     return model;
@@ -73,6 +56,7 @@ std::unique_ptr<Model> Model::loadFromFile(const std::string& file, VulkanDevice
 Model::Model(VulkanDevice* device, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices) {
     createVertexBuffer(vertices, device);
     createIndexBuffer(indices, device);
+    indices_count_ = indices.size();
     // createDescriptorSet();
 }
 
@@ -136,10 +120,13 @@ void Model::createIndexBuffer(std::vector<uint32_t>& indices, VulkanDevice* devi
     staging_buffer.destroy();
 }
 
-void Model::draw(VkCommandBuffer command_buffer, VkPipelineLayout pipeline_layout) {
+void Model::draw(VkCommandBuffer command_buffer, VkPipelineLayout pipeline_layout, VkDescriptorSet& descriptor_set) {
+    VkBuffer vertex_buffers[] = {vertex_buffer_.buffer};
     const VkDeviceSize offsets[1] = {0};
-    vkCmdBindVertexBuffers(command_buffer, 0, 1, &vertex_buffer_.buffer, offsets);
+    vkCmdBindVertexBuffers(command_buffer, 0, 1, vertex_buffers, offsets);
     vkCmdBindIndexBuffer(command_buffer, index_buffer_.buffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
+    vkCmdDrawIndexed(command_buffer, indices_count_, 1, 0, 0, 0);
 }
 
 Model::~Model() {
