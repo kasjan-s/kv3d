@@ -11,11 +11,12 @@ class VulkanDevice;
 class Texture {
 public:
     static std::unique_ptr<Texture> createFromFile(const std::string& file, VulkanDevice* device);
+    ~Texture();
 
     VkDescriptorImageInfo* getDescriptor();
 
 private:
-    Texture() = default;
+    Texture(VkDevice device);
     void initImage(VulkanDevice* device, uint32_t width, uint32_t height, Buffer& staging_buffer);
     void initSampler(VulkanDevice* device);
     void transitionImageLayoutCmd(VkCommandBuffer command_buffer, VkImageLayout old_layout, VkImageLayout new_layout);
@@ -26,4 +27,5 @@ private:
     VkImageView texture_image_view_;
     VkDescriptorImageInfo descriptor_;
     VkSampler sampler_;
+    VkDevice device_;
 };

@@ -30,7 +30,7 @@ std::unique_ptr<Texture> Texture::createFromFile(const std::string &file, Vulkan
     staging_buffer.unmap();
     stbi_image_free(pixels);
 
-    auto texture = std::unique_ptr<Texture>(new Texture());
+    auto texture = std::unique_ptr<Texture>(new Texture(*device));
     texture->initImage(device, tex_width, tex_height, staging_buffer);
     texture->initSampler(device);
     
@@ -38,6 +38,15 @@ std::unique_ptr<Texture> Texture::createFromFile(const std::string &file, Vulkan
 
     return texture;
 }
+
+Texture::~Texture() {
+    vkDestroySampler(device_, sampler_, nullptr);
+    vkDestroyImageView(device_, texture_image_view_, nullptr);
+    vkDestroyImage(device_, texture_image_, nullptr);
+    vkFreeMemory(device_, texture_image_memory_, nullptr);
+}
+
+Texture::Texture(VkDevice device) : device_(device) {}
 
 void Texture::initImage(VulkanDevice* device, uint32_t width, uint32_t height, Buffer& staging_buffer) {
     device->createImage(width, height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, texture_image_, texture_image_memory_);

@@ -11,14 +11,15 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/hash.hpp>
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "third_party/stb_image.h"
+// #define STB_IMAGE_IMPLEMENTATION
+// #include "third_party/stb_image.h"
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "third_party/tiny_obj_loader.h"
 
 #include "main/vulkan_device.h"
 #include "main/vulkan_swapchain.h"
+#include "main/texture.h"
 
 #include <algorithm>
 #include <array>
@@ -264,9 +265,10 @@ private:
         createGraphicsPipeline();
         
         createFramebuffers();
-        createTextureImage();
-        createTextureImageView();
-        createTextureSampler();
+        createTexture();
+        // createTextureImage();
+        // createTextureImageView();
+        // createTextureSampler();
         loadModel();
         createVertexBuffer();
         createIndexBuffer();
@@ -316,65 +318,8 @@ private:
         return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
     }
 
-    void createTextureImage() {
-        int tex_width, tex_height, tex_channels;
-        stbi_uc* pixels = stbi_load(TEXTURE_PATH.c_str(), &tex_width, &tex_height, &tex_channels, STBI_rgb_alpha);
-        VkDeviceSize image_size = tex_width * tex_height * 4;
-
-        if (!pixels) {
-            throw std::runtime_error("Failed to load texture image!");
-        }
-
-        VkBuffer staging_buffer;
-        VkDeviceMemory staging_buffer_memory;
-
-        createBuffer(image_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging_buffer, staging_buffer_memory);
-        void* data;
-        vkMapMemory(*vulkan_device_, staging_buffer_memory, 0, image_size, 0, &data);
-        std::memcpy(data, pixels, image_size);
-        vkUnmapMemory(*vulkan_device_, staging_buffer_memory);
-        stbi_image_free(pixels);
-
-        vulkan_device_->createImage(tex_width, tex_height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, texture_image_, texture_image_memory_);
-
-        transitionImageLayout(texture_image_, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        copyBufferToImage(staging_buffer, texture_image_, tex_width, tex_height);
-        transitionImageLayout(texture_image_, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-        vkDestroyBuffer(*vulkan_device_, staging_buffer, nullptr);
-        vkFreeMemory(*vulkan_device_, staging_buffer_memory, nullptr);
-    }
-
-    void createTextureImageView() {
-        texture_image_view_ = createImageView(texture_image_, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
-    }
-
-    void createTextureSampler() {
-        VkSamplerCreateInfo sampler_info{};
-        sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-        sampler_info.magFilter = VK_FILTER_LINEAR;
-        sampler_info.minFilter = VK_FILTER_LINEAR;
-        sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        sampler_info.anisotropyEnable = VK_TRUE;
-
-        VkPhysicalDeviceProperties properties{};
-        vkGetPhysicalDeviceProperties(vulkan_device_->getPhysicalDevice(), &properties);
-
-        sampler_info.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
-        sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-        sampler_info.unnormalizedCoordinates = VK_FALSE;
-        sampler_info.compareEnable = VK_FALSE;
-        sampler_info.compareOp = VK_COMPARE_OP_ALWAYS;
-        sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-        sampler_info.mipLodBias = 0.0f;
-        sampler_info.minLod = 0.0f;
-        sampler_info.maxLod = 0.0f;
-
-        if (vkCreateSampler(*vulkan_device_, &sampler_info, nullptr, &texture_sampler_) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to create texture sampler!");
-        }
+    void createTexture() {
+        texture_ = Texture::createFromFile(TEXTURE_PATH.c_str(), vulkan_device_.get());
     }
 
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspect_flags) {
@@ -529,11 +474,6 @@ private:
             buffer_info.offset = 0;
             buffer_info.range = sizeof(UniformBufferObject);
 
-            VkDescriptorImageInfo image_info{};
-            image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            image_info.imageView = texture_image_view_;
-            image_info.sampler = texture_sampler_;
-
             std::array<VkWriteDescriptorSet, 2> descriptor_writes{};
             {
                 // Uniform Buffer
@@ -558,7 +498,7 @@ private:
                 descriptor_write.dstArrayElement = 0;
                 descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
                 descriptor_write.descriptorCount = 1;
-                descriptor_write.pImageInfo = &image_info;
+                descriptor_write.pImageInfo = texture_->getDescriptor();
                 descriptor_write.pNext = nullptr;
                 descriptor_write.pBufferInfo = VK_NULL_HANDLE;
                 descriptor_writes[1] = descriptor_write;
@@ -1141,10 +1081,7 @@ private:
             vkDestroyFramebuffer(*vulkan_device_, framebuffer, nullptr);
         }
 
-        vkDestroySampler(*vulkan_device_, texture_sampler_, nullptr);
-        vkDestroyImageView(*vulkan_device_, texture_image_view_, nullptr);
-        vkDestroyImage(*vulkan_device_, texture_image_, nullptr);
-        vkFreeMemory(*vulkan_device_, texture_image_memory_, nullptr);
+        texture_.reset();
 
         for (int i = 0; i < kMaxFramesInFlight; ++i) {
             vkDestroyBuffer(*vulkan_device_, uniform_buffers_[i], nullptr);
@@ -1199,10 +1136,7 @@ private:
     VkSurfaceKHR surface_;
     std::unique_ptr<VulkanSwapchain> swapchain_;
     std::vector<VkFramebuffer> swap_chain_framebuffers_;
-    VkImage texture_image_;
-    VkDeviceMemory texture_image_memory_;
-    VkSampler texture_sampler_;
-    VkImageView texture_image_view_;
+    std::unique_ptr<Texture> texture_;
     std::vector<VkBuffer> uniform_buffers_;
     std::vector<VkDeviceMemory> uniform_buffers_memory_;
     std::vector<void*> uniform_buffers_mapped_;
