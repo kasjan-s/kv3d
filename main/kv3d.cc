@@ -263,7 +263,6 @@ private:
 
         createGraphicsPipeline();
         
-        createCommandPool();
         createFramebuffers();
         createTextureImage();
         createTextureImageView();
@@ -569,41 +568,8 @@ private:
         }
     }
 
-    VkCommandBuffer beginSingleTimeCommands() {
-        VkCommandBufferAllocateInfo alloc_info{};
-        alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        alloc_info.commandPool = command_pool_;
-        alloc_info.commandBufferCount = 1;
-
-        VkCommandBuffer command_buffer;
-        vkAllocateCommandBuffers(*vulkan_device_, &alloc_info, &command_buffer);
-
-        VkCommandBufferBeginInfo begin_info{};
-        begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-        vkBeginCommandBuffer(command_buffer, &begin_info);
-
-        return command_buffer;
-    }
-
-    void endSingleTimeCommands(VkCommandBuffer& command_buffer) {
-        vkEndCommandBuffer(command_buffer);
-
-        VkSubmitInfo submit_info{};
-        submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submit_info.commandBufferCount = 1;
-        submit_info.pCommandBuffers = &command_buffer;
-
-        vkQueueSubmit(vulkan_device_->getGraphicsQueue(), 1, &submit_info, VK_NULL_HANDLE);
-        vkQueueWaitIdle(vulkan_device_->getGraphicsQueue());
-
-        vkFreeCommandBuffers(*vulkan_device_, command_pool_, 1, &command_buffer);
-    }
-
     void copyBuffer(VkBuffer src_buffer, VkBuffer dst_buffer, VkDeviceSize size) {
-        VkCommandBuffer command_buffer = beginSingleTimeCommands();
+        VkCommandBuffer command_buffer = vulkan_device_->beginCommandBuffer();
 
         VkBufferCopy copy_region{};
         copy_region.srcOffset = 0;
@@ -611,11 +577,11 @@ private:
         copy_region.size = size;
         vkCmdCopyBuffer(command_buffer, src_buffer, dst_buffer, 1, &copy_region);
 
-        endSingleTimeCommands(command_buffer);
+        vulkan_device_->submitCommandBuffer(command_buffer, vulkan_device_->getGraphicsQueue());
     }
 
     void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout) {
-        VkCommandBuffer command_buffer = beginSingleTimeCommands();
+        VkCommandBuffer command_buffer = vulkan_device_->beginCommandBuffer();
 
         VkImageMemoryBarrier barrier{};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -666,11 +632,11 @@ private:
 
         vkCmdPipelineBarrier(command_buffer, source_stage, dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
-        endSingleTimeCommands(command_buffer);
+        vulkan_device_->submitCommandBuffer(command_buffer, vulkan_device_->getGraphicsQueue());
     }
 
     void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
-        VkCommandBuffer command_buffer = beginSingleTimeCommands();
+        VkCommandBuffer command_buffer = vulkan_device_->beginCommandBuffer();
 
         VkBufferImageCopy region{};
         region.bufferOffset = 0;
@@ -689,7 +655,7 @@ private:
 
         vkCmdCopyBufferToImage(command_buffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
-        endSingleTimeCommands(command_buffer);
+        vulkan_device_->submitCommandBuffer(command_buffer, vulkan_device_->getGraphicsQueue());
     }
 
     void createSyncObjects() {
@@ -772,25 +738,12 @@ private:
         command_buffers_.resize(kMaxFramesInFlight);
         VkCommandBufferAllocateInfo alloc_info{};
         alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        alloc_info.commandPool = command_pool_;
+        alloc_info.commandPool = vulkan_device_->getCommandPool();
         alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         alloc_info.commandBufferCount = command_buffers_.size();
 
         if (vkAllocateCommandBuffers(*vulkan_device_, &alloc_info, command_buffers_.data()) != VK_SUCCESS) {
             throw std::runtime_error("Failed to allocate command buffers!");
-        }
-    }
-
-    void createCommandPool() {
-        QueueFamilyIndices queue_family_indices = findQueueFamilies(vulkan_device_->getPhysicalDevice());
-
-        VkCommandPoolCreateInfo pool_info{};
-        pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-        pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-        pool_info.queueFamilyIndex = queue_family_indices.graphics_family.value();
-
-        if (vkCreateCommandPool(*vulkan_device_, &pool_info, nullptr, &command_pool_) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to create command pool!");
         }
     }
 
@@ -1068,69 +1021,6 @@ private:
         createFramebuffers();
     }
 
-    VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& available_formats) {
-        for (const auto& format : available_formats) {
-            if (format.format == VK_FORMAT_B8G8R8A8_SRGB && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
-                return format;
-            }
-        }
-
-        return available_formats[0];
-    }
-
-    VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& available_present_modes) {
-        for (const auto& present_mode : available_present_modes) {
-            if (present_mode == VK_PRESENT_MODE_MAILBOX_KHR) {
-                return present_mode;
-            }
-        }
-
-        return VK_PRESENT_MODE_FIFO_KHR;
-    }
-
-    VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) {
-        if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
-            return capabilities.currentExtent;
-        } else {
-            int width, height;
-            glfwGetFramebufferSize(window_, &width, &height);
-
-            VkExtent2D actual_extent = {
-                static_cast<uint32_t>(width),
-                static_cast<uint32_t>(height)
-            };
-
-            actual_extent.width = std::clamp(actual_extent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
-            actual_extent.height = std::clamp(actual_extent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
-
-            return actual_extent;
-        }
-    }
-
-    SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) {
-        SwapChainSupportDetails details;
-        
-        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface_, &details.capabilities);
-        
-        uint32_t format_count;
-        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface_, &format_count, nullptr);
-
-        if (format_count != 0) {
-            details.formats.resize(format_count);
-            vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface_, &format_count, details.formats.data());
-        }
-
-        uint32_t present_mode_count;
-        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface_, &present_mode_count, nullptr);
-
-        if (present_mode_count != 0) {
-            details.present_modes.resize(present_mode_count);
-            vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface_, &present_mode_count, details.present_modes.data());
-        }
-
-        return details;
-    }
-
     QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
         QueueFamilyIndices indices;
         
@@ -1276,7 +1166,6 @@ private:
             vkDestroyFence(*vulkan_device_, in_flight_fences_[i], nullptr);
         }
 
-        vkDestroyCommandPool(*vulkan_device_, command_pool_, nullptr);
         vkDestroyPipeline(*vulkan_device_, graphics_pipeline_, nullptr);
         vkDestroyPipelineLayout(*vulkan_device_, pipeline_layout_, nullptr);
         vkDestroyRenderPass(*vulkan_device_, render_pass_, nullptr);
@@ -1291,7 +1180,6 @@ private:
     }
 
     std::vector<VkCommandBuffer> command_buffers_;
-    VkCommandPool command_pool_;
     uint32_t current_frame_ = 0;
     VkDescriptorPool descriptor_pool_;
     std::vector<VkDescriptorSet> descriptor_sets_;
