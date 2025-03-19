@@ -242,36 +242,8 @@ private:
         }
     }
 
-    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& buffer_memory) {
-        return vulkan_device_->createBuffer(size, usage, properties, buffer, buffer_memory);
-    }
-
     VkFormat findDepthFormat() {
         return vulkan_device_->findSupportedFormat({VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT}, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-    }
-
-    bool hasStencilComponent(VkFormat format) {
-        return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
-    }
-
-    VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspect_flags) {
-        VkImageViewCreateInfo view_info{};
-        view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        view_info.image = image;
-        view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        view_info.format = format;
-        view_info.subresourceRange.aspectMask = aspect_flags;
-        view_info.subresourceRange.baseMipLevel = 0;
-        view_info.subresourceRange.levelCount = 1;
-        view_info.subresourceRange.baseArrayLayer = 0;
-        view_info.subresourceRange.layerCount = 1;
-
-        VkImageView image_view;
-        if (vkCreateImageView(*vulkan_device_, &view_info, nullptr, &image_view) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to create image view!");
-        }
-
-        return image_view;
     }
 
     void createSyncObjects() {
@@ -629,36 +601,12 @@ private:
         
         vkDeviceWaitIdle(*vulkan_device_);
 
+        swapchain_.reset();
         swapchain_ = VulkanSwapchain::createSwapChain(vulkan_device_.get(), surface_, window_);
-
-        createFramebuffers();
-    }
-
-    QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
-        QueueFamilyIndices indices;
-        
-        uint32_t queue_family_count = 0;
-        vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, nullptr);
-        std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
-        vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families.data());
-
-        for (int i = 0; i < queue_family_count; ++i) {
-            if (indices.isComplete())
-                break;
-
-            VkBool32 presentation_support = false;
-            vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface_, &presentation_support);
-            if (presentation_support) {
-                indices.presentation_family = i;
-            }
-
-            if (queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-                indices.graphics_family = i;
-            }            
+        for (auto framebuffer : swap_chain_framebuffers_) {
+            vkDestroyFramebuffer(*vulkan_device_, framebuffer, nullptr);
         }
-
-
-        return indices;
+        createFramebuffers();
     }
 
     void mainLoop() {
@@ -765,7 +713,6 @@ private:
 
     std::vector<VkCommandBuffer> command_buffers_;
     uint32_t current_frame_ = 0;
-    std::vector<VkDescriptorSet> descriptor_sets_;
     std::unique_ptr<VulkanDevice> vulkan_device_;
     VkDescriptorSetLayout descriptor_set_layout_;
     bool framebuffer_resized_ = false;
@@ -783,9 +730,6 @@ private:
 
     std::unordered_set<std::unique_ptr<SceneObject>> objects_container_;
     std::vector<SceneObject*> scene_objects_;
-
-    std::vector<Vertex> vertices_;
-    std::vector<uint32_t> indices_;
     
     GLFWwindow* window_;
 };
