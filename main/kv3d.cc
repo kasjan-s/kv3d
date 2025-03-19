@@ -13,6 +13,7 @@
 
 #include "main/vulkan_device.h"
 #include "main/model.h"
+#include "main/scene_object.h"
 #include "main/vulkan_swapchain.h"
 #include "main/texture.h"
 
@@ -33,12 +34,6 @@
 #include "tools/cpp/runfiles/runfiles.h"
 
 using bazel::tools::cpp::runfiles::Runfiles;
-
-struct UniformBufferObject {
-    glm::mat4 model;
-    glm::mat4 view;
-    glm::mat4 proj;
-};
 
 bool checkValidationLayerSupport() {
     uint32_t layer_count;
@@ -69,7 +64,8 @@ constexpr int WIDTH = 800;
 constexpr int HEIGHT = 600;
 
 const std::string MODEL_PATH = "main/models/viking_room.obj";
-const std::string TEXTURE_PATH = "main/textures/viking_room.png";
+const std::string SPHERE_MODEL_PATH = "main/models/sphere.obj";
+const std::string TEXTURE_PATH = "main/textures/Stone_Tiles_003_COLOR.png";
 
 class HelloTriangleApplication {
 public:
@@ -184,6 +180,7 @@ private:
     void initVulkan() {
         createInstance();
         createSurface();
+
         vulkan_device_ = std::make_unique<VulkanDevice>(instance_, surface_);
         swapchain_ = VulkanSwapchain::createSwapChain(vulkan_device_.get(), surface_, window_);
 
@@ -193,11 +190,16 @@ private:
         createFramebuffers();
         createTexture();
 
-        model_ = Model::loadFromFile(MODEL_PATH, vulkan_device_.get());
+        scene_objects_.emplace_back(vulkan_device_.get());
+        scene_objects_.back().loadModel(SPHERE_MODEL_PATH);
+        scene_objects_.back().createUniformBuffers(kMaxFramesInFlight);
 
-        createUniformBuffers();
         createDescriptorPool();
-        createDescriptorSets();
+
+        for (auto& obj : scene_objects_) {
+            obj.createDescriptorSets(descriptor_set_layout_, descriptor_pool_, texture_.get());
+        }
+
         createCommandBuffers();
         createSyncObjects();
     }
@@ -265,20 +267,6 @@ private:
         return image_view;
     }
 
-    void createUniformBuffers() {
-        VkDeviceSize buffer_size = sizeof(UniformBufferObject);
-
-        uniform_buffers_.resize(kMaxFramesInFlight);
-        uniform_buffers_memory_.resize(kMaxFramesInFlight);
-        uniform_buffers_mapped_.resize(kMaxFramesInFlight);
-
-        for (size_t i = 0; i < kMaxFramesInFlight; ++i) {
-            createBuffer(buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT  | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniform_buffers_[i], uniform_buffers_memory_[i]);
-
-            vkMapMemory(*vulkan_device_, uniform_buffers_memory_[i], 0, buffer_size, 0, &uniform_buffers_mapped_[i]);
-        }
-    }
-
     void createDescriptorPool() {
         std::array<VkDescriptorPoolSize, 2> pool_sizes{};
         pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -295,149 +283,6 @@ private:
         if (vkCreateDescriptorPool(*vulkan_device_, &pool_info, nullptr, &descriptor_pool_) != VK_SUCCESS) {
             throw std::runtime_error("Failed to create descriptor pool!");
         }
-    }
-
-    void createDescriptorSets() {
-        std::vector<VkDescriptorSetLayout> layouts(kMaxFramesInFlight, descriptor_set_layout_);
-        VkDescriptorSetAllocateInfo alloc_info{};
-        alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        alloc_info.descriptorPool = descriptor_pool_;
-        alloc_info.descriptorSetCount = static_cast<uint32_t>(kMaxFramesInFlight);
-        alloc_info.pSetLayouts = layouts.data();
-
-        descriptor_sets_.resize(kMaxFramesInFlight);
-        if (vkAllocateDescriptorSets(*vulkan_device_, &alloc_info, descriptor_sets_.data()) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to allocate descriptor sets!");
-        }
-
-        for (int i = 0; i < kMaxFramesInFlight; ++i) {
-            VkDescriptorBufferInfo buffer_info{};
-            buffer_info.buffer = uniform_buffers_[i];
-            buffer_info.offset = 0;
-            buffer_info.range = sizeof(UniformBufferObject);
-
-            std::array<VkWriteDescriptorSet, 2> descriptor_writes{};
-            {
-                // Uniform Buffer
-                VkWriteDescriptorSet descriptor_write;
-                descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-                descriptor_write.dstSet = descriptor_sets_[i];
-                descriptor_write.dstBinding = 0;
-                descriptor_write.dstArrayElement = 0;
-                descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-                descriptor_write.descriptorCount = 1;
-                descriptor_write.pImageInfo = VK_NULL_HANDLE;
-                descriptor_write.pNext = nullptr;
-                descriptor_write.pBufferInfo = &buffer_info;
-                descriptor_writes[0] = descriptor_write;
-            }
-            {
-                // Image sampler
-                VkWriteDescriptorSet descriptor_write;
-                descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-                descriptor_write.dstSet = descriptor_sets_[i];
-                descriptor_write.dstBinding = 1;
-                descriptor_write.dstArrayElement = 0;
-                descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-                descriptor_write.descriptorCount = 1;
-                descriptor_write.pImageInfo = texture_->getDescriptor();
-                descriptor_write.pNext = nullptr;
-                descriptor_write.pBufferInfo = VK_NULL_HANDLE;
-                descriptor_writes[1] = descriptor_write;
-            }
-
-            vkUpdateDescriptorSets(*vulkan_device_, descriptor_writes.size(), descriptor_writes.data(), 0, nullptr);
-        }
-    }
-
-    void copyBuffer(VkBuffer src_buffer, VkBuffer dst_buffer, VkDeviceSize size) {
-        VkCommandBuffer command_buffer = vulkan_device_->beginCommandBuffer();
-
-        VkBufferCopy copy_region{};
-        copy_region.srcOffset = 0;
-        copy_region.dstOffset = 0;
-        copy_region.size = size;
-        vkCmdCopyBuffer(command_buffer, src_buffer, dst_buffer, 1, &copy_region);
-
-        vulkan_device_->submitCommandBuffer(command_buffer, vulkan_device_->getGraphicsQueue());
-    }
-
-    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout) {
-        VkCommandBuffer command_buffer = vulkan_device_->beginCommandBuffer();
-
-        VkImageMemoryBarrier barrier{};
-        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.oldLayout = old_layout;
-        barrier.newLayout = new_layout;
-        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image = image;
-        barrier.subresourceRange.baseMipLevel = 0;
-        barrier.subresourceRange.levelCount = 1;
-        barrier.subresourceRange.baseArrayLayer = 0;
-        barrier.subresourceRange.layerCount = 1;
-
-        if (new_layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-
-            if (hasStencilComponent(format)) {
-                barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
-            }
-        } else {
-            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        }
-        
-        VkPipelineStageFlags source_stage;
-        VkPipelineStageFlags dst_stage;
-
-        if (old_layout == VK_IMAGE_LAYOUT_UNDEFINED && new_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-            barrier.srcAccessMask = 0;
-            barrier.dstAccessMask = 0;
-
-            source_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-            dst_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        } else if (old_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && new_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-            source_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-            dst_stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        } else if (old_layout == VK_IMAGE_LAYOUT_UNDEFINED && new_layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-            barrier.srcAccessMask = 0;
-            barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-            source_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-            dst_stage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-        } else {
-            throw std::invalid_argument("Unsupported layout transition!");
-        }
-
-        vkCmdPipelineBarrier(command_buffer, source_stage, dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-
-        vulkan_device_->submitCommandBuffer(command_buffer, vulkan_device_->getGraphicsQueue());
-    }
-
-    void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
-        VkCommandBuffer command_buffer = vulkan_device_->beginCommandBuffer();
-
-        VkBufferImageCopy region{};
-        region.bufferOffset = 0;
-        region.bufferRowLength = 0;
-        region.bufferImageHeight = 0;
-
-        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        region.imageSubresource.mipLevel = 0;
-        region.imageSubresource.baseArrayLayer = 0;
-        region.imageSubresource.layerCount = 1;
-
-        region.imageOffset = {0, 0, 0};
-        region.imageExtent = {
-            width, height, 1
-        };
-
-        vkCmdCopyBufferToImage(command_buffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-
-        vulkan_device_->submitCommandBuffer(command_buffer, vulkan_device_->getGraphicsQueue());
     }
 
     void createSyncObjects() {
@@ -503,7 +348,9 @@ private:
         scissor.extent = extent;
         vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
-        model_->draw(command_buffer, pipeline_layout_, descriptor_sets_[current_frame_]);
+        for (auto& object : scene_objects_) {
+            object.draw(command_buffer, pipeline_layout_, current_frame_);
+        }
 
         vkCmdEndRenderPass(command_buffers_[current_frame_]);
         if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS) {
@@ -852,7 +699,9 @@ private:
         vkResetCommandBuffer(command_buffers_[current_frame_], 0);
         recordCommandBuffer(command_buffers_[current_frame_], image_index);
 
-        updateUniformBuffer(current_frame_);
+        for (auto& obj : scene_objects_) {
+            obj.updateUniformBuffer(current_frame_, swapchain_->getExtent());
+        }
 
         VkSubmitInfo submit_info{};
         submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -895,22 +744,6 @@ private:
         current_frame_ = (current_frame_ + 1) % kMaxFramesInFlight;
     }
 
-    void updateUniformBuffer(uint32_t current_image) {
-        static auto s_start_time = std::chrono::high_resolution_clock::now();
-
-        auto current_time = std::chrono::high_resolution_clock::now();
-        float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - s_start_time).count();
-
-        VkExtent2D extent = swapchain_->getExtent();
-        UniformBufferObject ubo{};
-        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        ubo.proj = glm::perspective(glm::radians(45.0f), extent.width / static_cast<float>(extent.height), 0.1f, 10.0f);
-        ubo.proj[1][1] *= -1;
-
-        std::memcpy(uniform_buffers_mapped_[current_image], &ubo, sizeof(ubo));
-    }
-
     void cleanup() {
         swapchain_.reset();
 
@@ -920,15 +753,10 @@ private:
 
         texture_.reset();
 
-        for (int i = 0; i < kMaxFramesInFlight; ++i) {
-            vkDestroyBuffer(*vulkan_device_, uniform_buffers_[i], nullptr);
-            vkFreeMemory(*vulkan_device_, uniform_buffers_memory_[i], nullptr);
-        }
-
         vkDestroyDescriptorPool(*vulkan_device_, descriptor_pool_, nullptr);
         vkDestroyDescriptorSetLayout(*vulkan_device_, descriptor_set_layout_, nullptr);
 
-        model_.reset();
+        scene_objects_.clear();
 
         for (int i = 0; i < kMaxFramesInFlight; ++i) {
             vkDestroySemaphore(*vulkan_device_, image_available_semaphores_[i], nullptr);
@@ -968,10 +796,7 @@ private:
     std::unique_ptr<VulkanSwapchain> swapchain_;
     std::vector<VkFramebuffer> swap_chain_framebuffers_;
     std::unique_ptr<Texture> texture_;
-    std::unique_ptr<Model> model_;
-    std::vector<VkBuffer> uniform_buffers_;
-    std::vector<VkDeviceMemory> uniform_buffers_memory_;
-    std::vector<void*> uniform_buffers_mapped_;
+    std::vector<SceneObject> scene_objects_;
 
     std::vector<Vertex> vertices_;
     std::vector<uint32_t> indices_;

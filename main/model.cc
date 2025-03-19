@@ -57,7 +57,6 @@ Model::Model(VulkanDevice* device, std::vector<Vertex>& vertices, std::vector<ui
     createVertexBuffer(vertices, device);
     createIndexBuffer(indices, device);
     indices_count_ = indices.size();
-    // createDescriptorSet();
 }
 
 void Model::createVertexBuffer(std::vector<Vertex>& vertices, VulkanDevice* device) {

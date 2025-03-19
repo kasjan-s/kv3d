@@ -3,6 +3,7 @@ cc_binary(
     srcs = ["kv3d.cc"],
     deps = [
         ":model",
+        ":scene_object",
         ":vertex",
         ":vulkan_device",
         ":vulkan_swapchain",
@@ -88,5 +89,16 @@ cc_library(
         "//third_party:tiny_obj_loader",
         "@glfw//:glfw",
         "@rules_vulkan//vulkan:vulkan_cc_library",
+    ]
+)
+
+cc_library(
+    name = "scene_object",
+    srcs = ["scene_object.cc"],
+    hdrs = ["scene_object.h"],
+    deps = [
+        ":model",
+        ":vulkan_texture",
+        ":vulkan_device",
     ]
 )
