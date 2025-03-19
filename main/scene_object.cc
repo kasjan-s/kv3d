@@ -12,6 +12,10 @@ void SceneObject::loadModel(const std::string& model_path) {
     model_ = Model::loadFromFile(model_path, device_);
 }
 
+void SceneObject::loadTexture(const std::string& texture_path) {
+    texture_ = Texture::createFromFile(texture_path.c_str(), device_);
+}
+
 void SceneObject::draw(VkCommandBuffer command_buffer, VkPipelineLayout pipeline_layout, uint32_t image_index) {
     model_->draw(command_buffer, pipeline_layout, descriptor_sets_[image_index]);
 }
@@ -21,6 +25,7 @@ UniformBufferObject SceneObject::getMatrices() {
 }
 
 SceneObject::~SceneObject() {
+    texture_.reset();
     for (int i = 0; i < kMaxFramesInFlight; ++i) {
         vkDestroyBuffer(*device_, uniform_buffers_[i], nullptr);
         vkFreeMemory(*device_, uniform_buffers_memory_[i], nullptr);
@@ -50,7 +55,7 @@ void SceneObject::updateUniformBuffer(uint32_t image_index, VkExtent2D extent) {
 
     UniformBufferObject ubo{};
     ubo.model = glm::translate(glm::mat4(1.0f), pos_) * glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.view = glm::lookAt(glm::vec3(80.0f, 4.0f, 4.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.view = glm::lookAt(glm::vec3(100.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.proj = glm::perspective(glm::radians(45.0f), extent.width / static_cast<float>(extent.height), 0.1f, 200.0f);
     ubo.proj[1][1] *= -1;
 
@@ -79,7 +84,7 @@ void SceneObject::createDescriptorPool() {
     }
 }
 
-void SceneObject::createDescriptorSets(VkDescriptorSetLayout descriptor_set_layout, Texture* texture) {
+void SceneObject::createDescriptorSets(VkDescriptorSetLayout descriptor_set_layout) {
     createDescriptorPool();
     std::vector<VkDescriptorSetLayout> layouts(kMaxFramesInFlight, descriptor_set_layout);
     VkDescriptorSetAllocateInfo alloc_info{};
@@ -121,7 +126,7 @@ void SceneObject::createDescriptorSets(VkDescriptorSetLayout descriptor_set_layo
             descriptor_write.dstArrayElement = 0;
             descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
             descriptor_write.descriptorCount = 1;
-            descriptor_write.pImageInfo = texture->getDescriptor();
+            descriptor_write.pImageInfo = texture_->getDescriptor();
             descriptor_write.pNext = nullptr;
             descriptor_write.pBufferInfo = VK_NULL_HANDLE;
             descriptor_writes[1] = descriptor_write;

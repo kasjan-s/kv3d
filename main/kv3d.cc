@@ -67,6 +67,7 @@ constexpr int HEIGHT = 600;
 const std::string MODEL_PATH = "main/models/viking_room.obj";
 const std::string SPHERE_MODEL_PATH = "main/models/sphere.obj";
 const std::string TEXTURE_PATH = "main/textures/Stone_Tiles_003_COLOR.png";
+const std::string TEXTURE_PATH2 = "main/textures/Blue_Marble_002_COLOR.png";
 
 class HelloTriangleApplication {
 public:
@@ -189,24 +190,25 @@ private:
         createDescriptorSetLayout();
         createGraphicsPipeline();
         createFramebuffers();
-        createTexture();
 
         std::unique_ptr<SceneObject> object = std::make_unique<SceneObject>(vulkan_device_.get());
         object->loadModel(SPHERE_MODEL_PATH);
+        object->loadTexture(TEXTURE_PATH);
         object->createUniformBuffers(kMaxFramesInFlight);
-        object->setPos(-5.0f);
+        object->setPos(-20.0f);
         scene_objects_.push_back(object.get());
         objects_container_.insert(std::move(object));
 
         std::unique_ptr<SceneObject> object2 = std::make_unique<SceneObject>(vulkan_device_.get());
         object2->loadModel(SPHERE_MODEL_PATH);
+        object2->loadTexture(TEXTURE_PATH2);
         object2->createUniformBuffers(kMaxFramesInFlight);
-        object2->setPos(5.0f);
+        object2->setPos(20.0f);
         scene_objects_.push_back(object2.get());
         objects_container_.insert(std::move(object2));
 
         for (auto& obj : scene_objects_) {
-            obj->createDescriptorSets(descriptor_set_layout_, texture_.get());
+            obj->createDescriptorSets(descriptor_set_layout_);
         }
 
         createCommandBuffers();
@@ -250,10 +252,6 @@ private:
 
     bool hasStencilComponent(VkFormat format) {
         return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
-    }
-
-    void createTexture() {
-        texture_ = Texture::createFromFile(TEXTURE_PATH.c_str(), vulkan_device_.get());
     }
 
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspect_flags) {
@@ -742,8 +740,6 @@ private:
             vkDestroyFramebuffer(*vulkan_device_, framebuffer, nullptr);
         }
 
-        texture_.reset();
-
         vkDestroyDescriptorSetLayout(*vulkan_device_, descriptor_set_layout_, nullptr);
 
         objects_container_.clear();
@@ -784,7 +780,6 @@ private:
     VkSurfaceKHR surface_;
     std::unique_ptr<VulkanSwapchain> swapchain_;
     std::vector<VkFramebuffer> swap_chain_framebuffers_;
-    std::unique_ptr<Texture> texture_;
 
     std::unordered_set<std::unique_ptr<SceneObject>> objects_container_;
     std::vector<SceneObject*> scene_objects_;

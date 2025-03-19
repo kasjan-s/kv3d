@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "main/model.h"
+#include "main/texture.h"
 #include "main/vulkan_device.h"
 
 class Texture;
@@ -22,12 +23,13 @@ public:
     ~SceneObject();
     
     void loadModel(const std::string& model_path);
+    void loadTexture(const std::string& texture_path);
     void draw(VkCommandBuffer command_buffer, VkPipelineLayout pipeline_layout, uint32_t image_index);
     UniformBufferObject getMatrices();
     void createUniformBuffers(int buffer_count);
     void updateUniformBuffer(uint32_t image_index, VkExtent2D extent);
     void createDescriptorPool();
-    void createDescriptorSets(VkDescriptorSetLayout descriptor_set_layout, Texture* texture);
+    void createDescriptorSets(VkDescriptorSetLayout descriptor_set_layout);
     void setPos(float i);
 
 private:
@@ -40,4 +42,5 @@ private:
     std::vector<VkDescriptorSet> descriptor_sets_;
     VkDescriptorPool descriptor_pool_;
     glm::vec3 pos_;
+    std::unique_ptr<Texture> texture_;
 };
