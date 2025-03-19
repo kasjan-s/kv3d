@@ -93,9 +93,7 @@ VulkanSwapchain::~VulkanSwapchain() {
     for (auto& image_view : swap_chain_image_views_) {
         vkDestroyImageView(*device_, image_view, nullptr);
     }
-    for (auto& image : swap_chain_images_) {
-        vkDestroyImage(*device_, image, nullptr);
-    }
+
     vkDestroySwapchainKHR(*device_, swap_chain_, nullptr);
 }
 

@@ -75,11 +75,11 @@ VulkanDevice::VulkanDevice(VkInstance instance, VkSurfaceKHR surface)
     pickPhysicalDevice(instance);
     queue_family_indices_ = QueueFamilyIndices(physical_device_, surface);
     createLogicalDevice();
-    // command_pool_ = createCommandPool();
+    command_pool_ = createCommandPool();
 }
 
 VulkanDevice::~VulkanDevice() {
-    // vkDestroyCommandPool(logical_device_, command_pool_, nullptr);
+    vkDestroyCommandPool(logical_device_, command_pool_, nullptr);
     vkDestroyDevice(logical_device_, nullptr);
 }
 
