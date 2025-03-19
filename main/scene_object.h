@@ -26,7 +26,9 @@ public:
     UniformBufferObject getMatrices();
     void createUniformBuffers(int buffer_count);
     void updateUniformBuffer(uint32_t image_index, VkExtent2D extent);
-    void createDescriptorSets(VkDescriptorSetLayout descriptor_set_layout, VkDescriptorPool descriptor_pool, Texture* texture);
+    void createDescriptorPool();
+    void createDescriptorSets(VkDescriptorSetLayout descriptor_set_layout, Texture* texture);
+    void setPos(float i);
 
 private:
     UniformBufferObject matrices_;
@@ -36,4 +38,6 @@ private:
     std::vector<VkDeviceMemory> uniform_buffers_memory_;
     std::vector<void*> uniform_buffers_mapped_;
     std::vector<VkDescriptorSet> descriptor_sets_;
+    VkDescriptorPool descriptor_pool_;
+    glm::vec3 pos_;
 };

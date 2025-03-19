@@ -25,6 +25,7 @@ SceneObject::~SceneObject() {
         vkDestroyBuffer(*device_, uniform_buffers_[i], nullptr);
         vkFreeMemory(*device_, uniform_buffers_memory_[i], nullptr);
     }
+    vkDestroyDescriptorPool(*device_, descriptor_pool_, nullptr);
 }
 
 void SceneObject::createUniformBuffers(int buffer_count) {
@@ -48,7 +49,7 @@ void SceneObject::updateUniformBuffer(uint32_t image_index, VkExtent2D extent) {
     float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - s_start_time).count();
 
     UniformBufferObject ubo{};
-    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.model = glm::translate(glm::mat4(1.0f), pos_) * glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.view = glm::lookAt(glm::vec3(80.0f, 4.0f, 4.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.proj = glm::perspective(glm::radians(45.0f), extent.width / static_cast<float>(extent.height), 0.1f, 200.0f);
     ubo.proj[1][1] *= -1;
@@ -56,18 +57,39 @@ void SceneObject::updateUniformBuffer(uint32_t image_index, VkExtent2D extent) {
     std::memcpy(uniform_buffers_mapped_[image_index], &ubo, sizeof(ubo));
 }
 
-void SceneObject::createDescriptorSets(VkDescriptorSetLayout descriptor_set_layout, VkDescriptorPool descriptor_pool, Texture* texture) {
+void SceneObject::setPos(float i) {
+    pos_ = i * glm::vec3(0.0f, 0.0f, 1.0f);
+}
+
+void SceneObject::createDescriptorPool() {
+    std::array<VkDescriptorPoolSize, 2> pool_sizes{};
+    pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    pool_sizes[0].descriptorCount = static_cast<uint32_t>(kMaxFramesInFlight);
+    pool_sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    pool_sizes[1].descriptorCount = kMaxFramesInFlight;
+
+    VkDescriptorPoolCreateInfo pool_info{};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.poolSizeCount = pool_sizes.size();
+    pool_info.pPoolSizes = pool_sizes.data();
+    pool_info.maxSets = static_cast<uint32_t>(kMaxFramesInFlight);
+
+    if (vkCreateDescriptorPool(*device_, &pool_info, nullptr, &descriptor_pool_) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create descriptor pool!");
+    }
+}
+
+void SceneObject::createDescriptorSets(VkDescriptorSetLayout descriptor_set_layout, Texture* texture) {
+    createDescriptorPool();
     std::vector<VkDescriptorSetLayout> layouts(kMaxFramesInFlight, descriptor_set_layout);
     VkDescriptorSetAllocateInfo alloc_info{};
     alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    alloc_info.descriptorPool = descriptor_pool;
+    alloc_info.descriptorPool = descriptor_pool_;
     alloc_info.descriptorSetCount = static_cast<uint32_t>(kMaxFramesInFlight);
     alloc_info.pSetLayouts = layouts.data();
 
     descriptor_sets_.resize(kMaxFramesInFlight);
-    if (vkAllocateDescriptorSets(*device_, &alloc_info, descriptor_sets_.data()) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to allocate descriptor sets!");
-    }
+    VK_CHECK_RESULT(vkAllocateDescriptorSets(*device_, &alloc_info, descriptor_sets_.data()));
 
     for (int i = 0; i < kMaxFramesInFlight; ++i) {
         VkDescriptorBufferInfo buffer_info{};

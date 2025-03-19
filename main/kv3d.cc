@@ -27,6 +27,7 @@
 #include <stdexcept>
 #include <cstdlib>
 #include <set>
+#include <unordered_set>
 #include <string_view>
 #include <vector>
 #include <filesystem>
@@ -190,14 +191,22 @@ private:
         createFramebuffers();
         createTexture();
 
-        scene_objects_.emplace_back(vulkan_device_.get());
-        scene_objects_.back().loadModel(SPHERE_MODEL_PATH);
-        scene_objects_.back().createUniformBuffers(kMaxFramesInFlight);
+        std::unique_ptr<SceneObject> object = std::make_unique<SceneObject>(vulkan_device_.get());
+        object->loadModel(SPHERE_MODEL_PATH);
+        object->createUniformBuffers(kMaxFramesInFlight);
+        object->setPos(-5.0f);
+        scene_objects_.push_back(object.get());
+        objects_container_.insert(std::move(object));
 
-        createDescriptorPool();
+        std::unique_ptr<SceneObject> object2 = std::make_unique<SceneObject>(vulkan_device_.get());
+        object2->loadModel(SPHERE_MODEL_PATH);
+        object2->createUniformBuffers(kMaxFramesInFlight);
+        object2->setPos(5.0f);
+        scene_objects_.push_back(object2.get());
+        objects_container_.insert(std::move(object2));
 
         for (auto& obj : scene_objects_) {
-            obj.createDescriptorSets(descriptor_set_layout_, descriptor_pool_, texture_.get());
+            obj->createDescriptorSets(descriptor_set_layout_, texture_.get());
         }
 
         createCommandBuffers();
@@ -267,24 +276,6 @@ private:
         return image_view;
     }
 
-    void createDescriptorPool() {
-        std::array<VkDescriptorPoolSize, 2> pool_sizes{};
-        pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        pool_sizes[0].descriptorCount = static_cast<uint32_t>(kMaxFramesInFlight);
-        pool_sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        pool_sizes[1].descriptorCount = kMaxFramesInFlight;
-
-        VkDescriptorPoolCreateInfo pool_info{};
-        pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        pool_info.poolSizeCount = pool_sizes.size();
-        pool_info.pPoolSizes = pool_sizes.data();
-        pool_info.maxSets = static_cast<uint32_t>(kMaxFramesInFlight);
-
-        if (vkCreateDescriptorPool(*vulkan_device_, &pool_info, nullptr, &descriptor_pool_) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to create descriptor pool!");
-        }
-    }
-
     void createSyncObjects() {
         image_available_semaphores_.resize(kMaxFramesInFlight);
         render_finished_semaphores_.resize(kMaxFramesInFlight);
@@ -349,7 +340,7 @@ private:
         vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
         for (auto& object : scene_objects_) {
-            object.draw(command_buffer, pipeline_layout_, current_frame_);
+            object->draw(command_buffer, pipeline_layout_, current_frame_);
         }
 
         vkCmdEndRenderPass(command_buffers_[current_frame_]);
@@ -700,7 +691,7 @@ private:
         recordCommandBuffer(command_buffers_[current_frame_], image_index);
 
         for (auto& obj : scene_objects_) {
-            obj.updateUniformBuffer(current_frame_, swapchain_->getExtent());
+            obj->updateUniformBuffer(current_frame_, swapchain_->getExtent());
         }
 
         VkSubmitInfo submit_info{};
@@ -753,10 +744,9 @@ private:
 
         texture_.reset();
 
-        vkDestroyDescriptorPool(*vulkan_device_, descriptor_pool_, nullptr);
         vkDestroyDescriptorSetLayout(*vulkan_device_, descriptor_set_layout_, nullptr);
 
-        scene_objects_.clear();
+        objects_container_.clear();
 
         for (int i = 0; i < kMaxFramesInFlight; ++i) {
             vkDestroySemaphore(*vulkan_device_, image_available_semaphores_[i], nullptr);
@@ -779,7 +769,6 @@ private:
 
     std::vector<VkCommandBuffer> command_buffers_;
     uint32_t current_frame_ = 0;
-    VkDescriptorPool descriptor_pool_;
     std::vector<VkDescriptorSet> descriptor_sets_;
     std::unique_ptr<VulkanDevice> vulkan_device_;
     VkDescriptorSetLayout descriptor_set_layout_;
@@ -796,7 +785,9 @@ private:
     std::unique_ptr<VulkanSwapchain> swapchain_;
     std::vector<VkFramebuffer> swap_chain_framebuffers_;
     std::unique_ptr<Texture> texture_;
-    std::vector<SceneObject> scene_objects_;
+
+    std::unordered_set<std::unique_ptr<SceneObject>> objects_container_;
+    std::vector<SceneObject*> scene_objects_;
 
     std::vector<Vertex> vertices_;
     std::vector<uint32_t> indices_;
