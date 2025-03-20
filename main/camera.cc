@@ -1,7 +1,7 @@
 #include "main/camera.h"
 
 glm::mat4 Camera::getPerspectiveMatrix() const {
-    return glm::perspective(glm::radians(fov_y_), getAspectRatio(), near_clip_, far_clip_);
+    return perspective_matrix_;
 }
 
 glm::mat4 Camera::getViewMatrix() const {
@@ -19,4 +19,7 @@ float Camera::getAspectRatio() const {
 void Camera::setScreenSize(size_t width, size_t height) {
     width_ = width;
     height_ = height;
+
+    perspective_matrix_ = glm::perspective(glm::radians(fov_y_), getAspectRatio(), near_clip_, far_clip_);
+    perspective_matrix_[1][1] *= -1;
 }

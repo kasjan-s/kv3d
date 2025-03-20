@@ -5,8 +5,8 @@
 #include <GLFW/glfw3.h>
 
 #define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_ENABLE_EXPERIMENTAL 
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/hash.hpp>
@@ -193,8 +193,8 @@ private:
 
         VkExtent2D extent = swapchain_->getExtent();
         scene_.setScreenSize(extent.width, extent.height);
-        scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, TEXTURE_PATH, glm::vec3(-20.0f, 0.0f, 0.0f));
-        scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, TEXTURE_PATH2, glm::vec3(20.0f, 0.0f, 0.0f));
+        scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, TEXTURE_PATH, glm::vec3(-10.0f, 0.0f, 0.0f));
+        scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, TEXTURE_PATH2, glm::vec3(10.0f, 0.0f, 0.0f));
         scene_.createDescriptorSets(descriptor_set_layout_);
 
         createCommandBuffers();
@@ -474,7 +474,7 @@ private:
         rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
         rasterizer.lineWidth = 1.0f;
         rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-        rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+        rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
         rasterizer.depthBiasEnable = VK_FALSE;
         rasterizer.depthBiasConstantFactor = 0.0f;
         rasterizer.depthBiasClamp = 0.0f;

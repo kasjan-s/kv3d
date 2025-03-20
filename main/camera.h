@@ -1,8 +1,8 @@
 #pragma once
 
 #define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_ENABLE_EXPERIMENTAL 
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -26,4 +26,5 @@ private:
     glm::vec3 camera_pos_ = glm::vec3(0.0f, 100.0f, 0.0f);
     glm::vec3 camera_direction_ = glm::vec3(0.0f, -1.0f, 0.0f);
     glm::vec3 up_direction_ = glm::vec3(0.0f, 0.0f, 1.0f);
+    glm::mat4 perspective_matrix_;
 };
