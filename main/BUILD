@@ -97,6 +97,7 @@ cc_library(
     srcs = ["scene_object.cc"],
     hdrs = ["scene_object.h"],
     deps = [
+        ":camera",
         ":model",
         ":vulkan_texture",
         ":vulkan_device",
@@ -108,6 +109,16 @@ cc_library(
     srcs = ["scene.cc"],
     hdrs = ["scene.h"],
     deps = [
+        ":camera",
         ":scene_object"
+    ]
+)
+
+cc_library(
+    name = "camera",
+    srcs = ["camera.cc"],
+    hdrs = ["camera.h"],
+    deps = [
+        "@glm//:glm",
     ]
 )

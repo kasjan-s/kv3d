@@ -191,6 +191,8 @@ private:
         createGraphicsPipeline();
         createFramebuffers();
 
+        VkExtent2D extent = swapchain_->getExtent();
+        scene_.setScreenSize(extent.width, extent.height);
         scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, TEXTURE_PATH, glm::vec3(-20.0f, 0.0f, 0.0f));
         scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, TEXTURE_PATH2, glm::vec3(20.0f, 0.0f, 0.0f));
         scene_.createDescriptorSets(descriptor_set_layout_);
@@ -589,6 +591,7 @@ private:
             vkDestroyFramebuffer(*vulkan_device_, framebuffer, nullptr);
         }
         createFramebuffers();
+        scene_.setScreenSize(width, height);
     }
 
     void mainLoop() {
@@ -618,7 +621,7 @@ private:
         vkResetCommandBuffer(command_buffers_[current_frame_], 0);
         recordCommandBuffer(command_buffers_[current_frame_], image_index);
 
-        scene_.updateUniformBuffers(current_frame_, swapchain_->getExtent());        
+        scene_.updateUniformBuffers(current_frame_);        
 
         VkSubmitInfo submit_info{};
         submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;

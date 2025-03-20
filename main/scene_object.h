@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include "main/camera.h"
 #include "main/model.h"
 #include "main/texture.h"
 #include "main/vulkan_device.h"
@@ -27,7 +28,7 @@ public:
     void draw(VkCommandBuffer command_buffer, VkPipelineLayout pipeline_layout, uint32_t image_index);
     UniformBufferObject getMatrices();
     void createUniformBuffers(int buffer_count);
-    void updateUniformBuffer(uint32_t image_index, VkExtent2D extent);
+    void updateUniformBuffer(uint32_t image_index, const Camera& camera);
     void createDescriptorPool();
     void createDescriptorSets(VkDescriptorSetLayout descriptor_set_layout);
     void setPos(const glm::vec3& pos);

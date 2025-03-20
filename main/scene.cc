@@ -27,8 +27,14 @@ void Scene::draw(VkCommandBuffer command_buffer, VkPipelineLayout pipeline_layou
     }
 }
 
-void Scene::updateUniformBuffers(uint32_t image_index, VkExtent2D extent) {
+void Scene::updateUniformBuffers(uint32_t image_index) {
     for (auto& obj : scene_objects_) {
-        obj->updateUniformBuffer(image_index, extent);
+        obj->updateUniformBuffer(image_index, camera_);
     }
+}
+
+void Scene::setScreenSize(size_t width, size_t height) {
+    width_ = width;
+    height_ = height;
+    camera_.setScreenSize(width, height);
 }

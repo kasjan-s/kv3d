@@ -47,7 +47,7 @@ void SceneObject::createUniformBuffers(int buffer_count) {
     }
 }
 
-void SceneObject::updateUniformBuffer(uint32_t image_index, VkExtent2D extent) {
+void SceneObject::updateUniformBuffer(uint32_t image_index, const Camera& camera) {
     static auto s_start_time = std::chrono::high_resolution_clock::now();
 
     auto current_time = std::chrono::high_resolution_clock::now();
@@ -55,8 +55,8 @@ void SceneObject::updateUniformBuffer(uint32_t image_index, VkExtent2D extent) {
 
     UniformBufferObject ubo{};
     ubo.model = glm::translate(glm::mat4(1.0f), pos_) * glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.view = glm::lookAt(glm::vec3(0.0f, 100.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.proj = glm::perspective(glm::radians(45.0f), extent.width / static_cast<float>(extent.height), 0.1f, 200.0f);
+    ubo.view = camera.getViewMatrix();
+    ubo.proj = camera.getPerspectiveMatrix();
     ubo.proj[1][1] *= -1;
 
     std::memcpy(uniform_buffers_mapped_[image_index], &ubo, sizeof(ubo));
