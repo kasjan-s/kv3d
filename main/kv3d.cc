@@ -11,9 +11,9 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/hash.hpp>
 
+#include "main/scene.h"
 #include "main/vulkan_device.h"
 #include "main/model.h"
-#include "main/scene_object.h"
 #include "main/vulkan_swapchain.h"
 #include "main/texture.h"
 
@@ -191,25 +191,9 @@ private:
         createGraphicsPipeline();
         createFramebuffers();
 
-        std::unique_ptr<SceneObject> object = std::make_unique<SceneObject>(vulkan_device_.get());
-        object->loadModel(SPHERE_MODEL_PATH);
-        object->loadTexture(TEXTURE_PATH);
-        object->createUniformBuffers(kMaxFramesInFlight);
-        object->setPos(-20.0f);
-        scene_objects_.push_back(object.get());
-        objects_container_.insert(std::move(object));
-
-        std::unique_ptr<SceneObject> object2 = std::make_unique<SceneObject>(vulkan_device_.get());
-        object2->loadModel(SPHERE_MODEL_PATH);
-        object2->loadTexture(TEXTURE_PATH2);
-        object2->createUniformBuffers(kMaxFramesInFlight);
-        object2->setPos(20.0f);
-        scene_objects_.push_back(object2.get());
-        objects_container_.insert(std::move(object2));
-
-        for (auto& obj : scene_objects_) {
-            obj->createDescriptorSets(descriptor_set_layout_);
-        }
+        scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, TEXTURE_PATH, glm::vec3(-20.0f, 0.0f, 0.0f));
+        scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, TEXTURE_PATH2, glm::vec3(20.0f, 0.0f, 0.0f));
+        scene_.createDescriptorSets(descriptor_set_layout_);
 
         createCommandBuffers();
         createSyncObjects();
@@ -309,9 +293,7 @@ private:
         scissor.extent = extent;
         vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
-        for (auto& object : scene_objects_) {
-            object->draw(command_buffer, pipeline_layout_, current_frame_);
-        }
+        scene_.draw(command_buffer, pipeline_layout_, current_frame_);        
 
         vkCmdEndRenderPass(command_buffers_[current_frame_]);
         if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS) {
@@ -636,9 +618,7 @@ private:
         vkResetCommandBuffer(command_buffers_[current_frame_], 0);
         recordCommandBuffer(command_buffers_[current_frame_], image_index);
 
-        for (auto& obj : scene_objects_) {
-            obj->updateUniformBuffer(current_frame_, swapchain_->getExtent());
-        }
+        scene_.updateUniformBuffers(current_frame_, swapchain_->getExtent());        
 
         VkSubmitInfo submit_info{};
         submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -690,7 +670,7 @@ private:
 
         vkDestroyDescriptorSetLayout(*vulkan_device_, descriptor_set_layout_, nullptr);
 
-        objects_container_.clear();
+        scene_.clear();
 
         for (int i = 0; i < kMaxFramesInFlight; ++i) {
             vkDestroySemaphore(*vulkan_device_, image_available_semaphores_[i], nullptr);
@@ -728,8 +708,7 @@ private:
     std::unique_ptr<VulkanSwapchain> swapchain_;
     std::vector<VkFramebuffer> swap_chain_framebuffers_;
 
-    std::unordered_set<std::unique_ptr<SceneObject>> objects_container_;
-    std::vector<SceneObject*> scene_objects_;
+    Scene scene_;
     
     GLFWwindow* window_;
 };

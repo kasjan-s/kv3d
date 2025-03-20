@@ -30,7 +30,7 @@ public:
     void updateUniformBuffer(uint32_t image_index, VkExtent2D extent);
     void createDescriptorPool();
     void createDescriptorSets(VkDescriptorSetLayout descriptor_set_layout);
-    void setPos(float i);
+    void setPos(const glm::vec3& pos);
 
 private:
     UniformBufferObject matrices_;
