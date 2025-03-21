@@ -54,7 +54,7 @@ void SceneObject::updateUniformBuffer(uint32_t image_index, const Camera& camera
     float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - s_start_time).count();
 
     UniformBufferObject ubo{};
-    ubo.model = glm::translate(glm::mat4(1.0f), pos_) * glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.model = glm::translate(glm::mat4(1.0f), pos_) /* glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f))*/;
     ubo.view = camera.getViewMatrix();
     ubo.proj = camera.getPerspectiveMatrix();
 

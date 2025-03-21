@@ -21,5 +21,11 @@ void Camera::setScreenSize(size_t width, size_t height) {
     height_ = height;
 
     perspective_matrix_ = glm::perspective(glm::radians(fov_y_), getAspectRatio(), near_clip_, far_clip_);
-    perspective_matrix_[1][1] *= -1;
+}
+
+void Camera::move(float dx, float dy) {
+    glm::vec3 x_delta = glm::vec3(1.0f, 0.0f, 0.0f) * dx;
+    glm::vec3 y_delta = glm::vec3(0.0f, 1.0f, 0.0f) * dy;
+
+    camera_pos_ += x_delta + y_delta;
 }

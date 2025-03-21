@@ -14,6 +14,7 @@ public:
     void draw(VkCommandBuffer command_buffer, VkPipelineLayout pipeline_layout, uint32_t image_index);
     void updateUniformBuffers(uint32_t image_index);
     void setScreenSize(size_t width, size_t height);
+    void moveCamera(float x_pos, float y_pos);
 
 private:
     std::unordered_set<std::unique_ptr<SceneObject>> objects_container_;

@@ -4,13 +4,6 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-#define GLM_FORCE_RADIANS
-#define GLM_ENABLE_EXPERIMENTAL 
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/hash.hpp>
-
 #include "main/scene.h"
 #include "main/vulkan_device.h"
 #include "main/model.h"
@@ -66,6 +59,7 @@ constexpr int HEIGHT = 600;
 
 const std::string MODEL_PATH = "main/models/viking_room.obj";
 const std::string SPHERE_MODEL_PATH = "main/models/sphere.obj";
+const std::string PLANE_MODEL_PATH = "main/models/plane.obj";
 const std::string TEXTURE_PATH = "main/textures/Stone_Tiles_003_COLOR.png";
 const std::string TEXTURE_PATH2 = "main/textures/Blue_Marble_002_COLOR.png";
 
@@ -82,6 +76,33 @@ public:
     }
 
 private:
+    void cursorEvent(double x_pos, double y_pos) {
+        if (left_mouse_button_down) {
+            float dx = x_pos - mouse_x;
+            float dy = y_pos - mouse_y;
+            scene_.moveCamera(dx, -dy);
+        }
+
+        mouse_x = x_pos;
+        mouse_y = y_pos;
+    }
+
+    void mouseEvent(int key, int event) {
+        if (key == GLFW_MOUSE_BUTTON_1) {
+            if (event == GLFW_PRESS) { 
+                left_mouse_button_down = true;
+            }
+
+            if (event == GLFW_RELEASE) {
+                left_mouse_button_down = false;
+            }
+        }
+    }
+
+    bool left_mouse_button_down = false;
+    float mouse_x;
+    float mouse_y;
+
     std::vector<char> readFile(const std::string& filename) {
         std::string file_path = runfiles_->Rlocation("_main/" + filename);
 
@@ -114,6 +135,16 @@ private:
             static_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window))->framebufferResizeCallback(width, height);
         };
         glfwSetFramebufferSizeCallback(window_, callback);
+    
+        auto cursor_callback = [](GLFWwindow* window, double x_pos, double y_pos) {
+            static_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window))->cursorEvent(x_pos, y_pos);
+        };
+        glfwSetCursorPosCallback(window_, cursor_callback);
+
+        auto mouse_button_callback = [](GLFWwindow* window, int button, int action, int mods) {
+            static_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window))->mouseEvent(button, action);
+        };
+        glfwSetMouseButtonCallback(window_, mouse_button_callback);
     }
 
     void framebufferResizeCallback(int width, int height) {
@@ -193,8 +224,10 @@ private:
 
         VkExtent2D extent = swapchain_->getExtent();
         scene_.setScreenSize(extent.width, extent.height);
-        scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, TEXTURE_PATH, glm::vec3(-10.0f, 0.0f, 0.0f));
-        scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, TEXTURE_PATH2, glm::vec3(10.0f, 0.0f, 0.0f));
+        scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, "main/textures/Blue_Marble_002_COLOR.png", glm::vec3(-50.0f, 0.0f, 0.0f));
+        scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, "main/textures/brick_color_map.png", glm::vec3(0.0f, 20.0f, 0.0f));
+        scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, "main/textures/brick_color_map.png", glm::vec3(50.0f, 0.0f, 0.0f));
+        scene_.createObject(vulkan_device_.get(), PLANE_MODEL_PATH, "main/textures/Stone_Tiles_003_COLOR.png", glm::vec3(0.0f, -25.0f, 0.0f));
         scene_.createDescriptorSets(descriptor_set_layout_);
 
         createCommandBuffers();
@@ -283,9 +316,9 @@ private:
 
         VkViewport viewport{};
         viewport.x = 0.0f;
-        viewport.y = 0.0f;
+        viewport.y = static_cast<float>(extent.height);
         viewport.width = static_cast<float>(extent.width);
-        viewport.height = static_cast<float>(extent.height);
+        viewport.height = -static_cast<float>(extent.height);
         viewport.minDepth = 0.0f;
         viewport.maxDepth = 1.0f;
         vkCmdSetViewport(command_buffer, 0, 1, &viewport);
@@ -440,9 +473,9 @@ private:
         VkExtent2D extent = swapchain_->getExtent();
         VkViewport viewport{};
         viewport.x = 0.0f;
-        viewport.y = 0.0f;
+        viewport.y = static_cast<float>(extent.height);
         viewport.width = static_cast<float>(extent.width);
-        viewport.height = static_cast<float>(extent.height);
+        viewport.height = -1.0f * static_cast<float>(extent.height);
         viewport.minDepth = 0.0f;
         viewport.maxDepth = 1.0f;
 

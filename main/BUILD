@@ -9,7 +9,6 @@ cc_binary(
         ":vulkan_swapchain",
         ":vulkan_texture",
         "@glfw//:glfw",
-        "@glm//:glm",
         "@rules_vulkan//vulkan:vulkan_cc_library",
         "@bazel_tools//tools/cpp/runfiles"        
     ],
