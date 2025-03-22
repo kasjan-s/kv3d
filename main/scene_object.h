@@ -15,6 +15,11 @@ struct UniformBufferObject {
     glm::mat4 proj;
 };
 
+struct SceneObjectPushConstant {
+    VkBool32 is_textured_;
+    alignas(16) glm::vec4 color_;
+};
+
 class SceneObject {
 public:
     SceneObject(VulkanDevice* device);
@@ -29,11 +34,13 @@ public:
     UniformBufferObject getMatrices();
     void createUniformBuffers(int buffer_count);
     void updateUniformBuffer(uint32_t image_index, const Camera& camera);
-    void createDescriptorPool();
     void createDescriptorSets(VkDescriptorSetLayout descriptor_set_layout);
     void setPos(const glm::vec3& pos);
+    SceneObjectPushConstant getPushConstants() const;
 
 private:
+    void createDescriptorPool(VkDescriptorSetLayout descriptor_set_layout);
+    void updateDescriptorSets();
     UniformBufferObject matrices_;
     std::unique_ptr<Model> model_;
     VulkanDevice* device_;
@@ -44,4 +51,5 @@ private:
     VkDescriptorPool descriptor_pool_;
     glm::vec3 pos_;
     std::unique_ptr<Texture> texture_;
+    SceneObjectPushConstant push_constants_;
 };

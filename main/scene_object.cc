@@ -13,10 +13,18 @@ void SceneObject::loadModel(const std::string& model_path) {
 }
 
 void SceneObject::loadTexture(const std::string& texture_path) {
-    texture_ = Texture::createFromFile(texture_path.c_str(), device_);
+    if (texture_path.empty()) {
+        push_constants_.is_textured_ = VK_FALSE;
+        push_constants_.color_ = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
+    } else {
+        push_constants_.is_textured_ = VK_TRUE;
+        texture_ = Texture::createFromFile(texture_path.c_str(), device_);
+    }
 }
 
 void SceneObject::draw(VkCommandBuffer command_buffer, VkPipelineLayout pipeline_layout, uint32_t image_index) {
+    updateDescriptorSets();
+    vkCmdPushConstants(command_buffer, pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SceneObjectPushConstant), &push_constants_);
     model_->draw(command_buffer, pipeline_layout, descriptor_sets_[image_index]);
 }
 
@@ -65,12 +73,18 @@ void SceneObject::setPos(const glm::vec3& pos) {
     pos_ = pos;
 }
 
-void SceneObject::createDescriptorPool() {
-    std::array<VkDescriptorPoolSize, 2> pool_sizes{};
-    pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    pool_sizes[0].descriptorCount = static_cast<uint32_t>(kMaxFramesInFlight);
-    pool_sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    pool_sizes[1].descriptorCount = kMaxFramesInFlight;
+void SceneObject::createDescriptorPool(VkDescriptorSetLayout descriptor_set_layout) {
+    std::vector<VkDescriptorPoolSize> pool_sizes{};
+    VkDescriptorPoolSize uniform_buffer_descriptor;
+    uniform_buffer_descriptor.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uniform_buffer_descriptor.descriptorCount = static_cast<uint32_t>(kMaxFramesInFlight);
+    pool_sizes.push_back(uniform_buffer_descriptor);
+    if (texture_) {
+        VkDescriptorPoolSize texture_sampler;
+        texture_sampler.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        texture_sampler.descriptorCount = kMaxFramesInFlight;
+        pool_sizes.push_back(texture_sampler);
+    }
 
     VkDescriptorPoolCreateInfo pool_info{};
     pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -81,10 +95,7 @@ void SceneObject::createDescriptorPool() {
     if (vkCreateDescriptorPool(*device_, &pool_info, nullptr, &descriptor_pool_) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create descriptor pool!");
     }
-}
-
-void SceneObject::createDescriptorSets(VkDescriptorSetLayout descriptor_set_layout) {
-    createDescriptorPool();
+    
     std::vector<VkDescriptorSetLayout> layouts(kMaxFramesInFlight, descriptor_set_layout);
     VkDescriptorSetAllocateInfo alloc_info{};
     alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -94,14 +105,21 @@ void SceneObject::createDescriptorSets(VkDescriptorSetLayout descriptor_set_layo
 
     descriptor_sets_.resize(kMaxFramesInFlight);
     VK_CHECK_RESULT(vkAllocateDescriptorSets(*device_, &alloc_info, descriptor_sets_.data()));
+}
 
+void SceneObject::createDescriptorSets(VkDescriptorSetLayout descriptor_set_layout) {
+    createDescriptorPool(descriptor_set_layout);
+    updateDescriptorSets();
+}
+
+void SceneObject::updateDescriptorSets() {
     for (int i = 0; i < kMaxFramesInFlight; ++i) {
         VkDescriptorBufferInfo buffer_info{};
         buffer_info.buffer = uniform_buffers_[i];
         buffer_info.offset = 0;
         buffer_info.range = sizeof(UniformBufferObject);
 
-        std::array<VkWriteDescriptorSet, 2> descriptor_writes{};
+        std::vector<VkWriteDescriptorSet> descriptor_writes{};
         {
             // Uniform Buffer
             VkWriteDescriptorSet descriptor_write;
@@ -114,9 +132,9 @@ void SceneObject::createDescriptorSets(VkDescriptorSetLayout descriptor_set_layo
             descriptor_write.pImageInfo = VK_NULL_HANDLE;
             descriptor_write.pNext = nullptr;
             descriptor_write.pBufferInfo = &buffer_info;
-            descriptor_writes[0] = descriptor_write;
+            descriptor_writes.push_back(descriptor_write);
         }
-        {
+        if (texture_) {
             // Image sampler
             VkWriteDescriptorSet descriptor_write;
             descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -128,9 +146,13 @@ void SceneObject::createDescriptorSets(VkDescriptorSetLayout descriptor_set_layo
             descriptor_write.pImageInfo = texture_->getDescriptor();
             descriptor_write.pNext = nullptr;
             descriptor_write.pBufferInfo = VK_NULL_HANDLE;
-            descriptor_writes[1] = descriptor_write;
-        }
+            descriptor_writes.push_back(descriptor_write);
+        } 
 
         vkUpdateDescriptorSets(*device_, descriptor_writes.size(), descriptor_writes.data(), 0, nullptr);
     }
+}
+
+SceneObjectPushConstant SceneObject::getPushConstants() const {
+    return push_constants_;
 }

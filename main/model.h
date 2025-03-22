@@ -21,7 +21,6 @@ private:
 
     void createVertexBuffer(std::vector<Vertex>& vertices, VulkanDevice* device);
     void createIndexBuffer(std::vector<uint32_t>& indices, VulkanDevice* device);
-    void createDescriptorSet();
 
     Buffer index_buffer_;
     Buffer vertex_buffer_;

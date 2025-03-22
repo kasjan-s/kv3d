@@ -19,8 +19,9 @@
     constexpr inline bool kEnableValidationLayers = true;
 #endif
 
-constexpr std::array<const char*, 1> kDeviceExtensions = {
-    VK_KHR_SWAPCHAIN_EXTENSION_NAME
+constexpr std::array<const char*, 2> kDeviceExtensions = {
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+    VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME
 };
 
 constexpr const char* kValidationLayers[] = {

@@ -241,7 +241,7 @@ private:
         scene_.setScreenSize(extent.width, extent.height);
         scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, "main/textures/Blue_Marble_002_COLOR.png", glm::vec3(-50.0f, 0.0f, 0.0f));
         scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, "main/textures/brick_color_map.png", glm::vec3(0.0f, 20.0f, 0.0f));
-        scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, "main/textures/brick_color_map.png", glm::vec3(50.0f, 0.0f, 0.0f));
+        scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, "", glm::vec3(50.0f, 0.0f, 0.0f));
         scene_.createObject(vulkan_device_.get(), PLANE_MODEL_PATH, "main/textures/Stone_Tiles_003_COLOR.png", glm::vec3(0.0f, -25.0f, 0.0f));
         scene_.createDescriptorSets(descriptor_set_layout_);
 
@@ -250,12 +250,15 @@ private:
     }
 
     void createDescriptorSetLayout() {
+        std::vector<VkDescriptorBindingFlags> bindings_flags;
+
         VkDescriptorSetLayoutBinding ubo_layout_binding{};
         ubo_layout_binding.binding = 0;
         ubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         ubo_layout_binding.descriptorCount = 1;
         ubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
         ubo_layout_binding.pImmutableSamplers = nullptr;
+        bindings_flags.push_back(VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT);
 
         VkDescriptorSetLayoutBinding sampler_layout_binding{};
         sampler_layout_binding.binding = 1;
@@ -263,13 +266,21 @@ private:
         sampler_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         sampler_layout_binding.pImmutableSamplers = nullptr;
         sampler_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        bindings_flags.push_back(VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT);
 
         std::array<VkDescriptorSetLayoutBinding, 2> bindings = {ubo_layout_binding, sampler_layout_binding};
+
+        VkDescriptorSetLayoutBindingFlagsCreateInfo binding_flags_create{};
+        binding_flags_create.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+        binding_flags_create.pBindingFlags = bindings_flags.data();
+        binding_flags_create.bindingCount = bindings_flags.size();
+        binding_flags_create.pNext = nullptr;
 
         VkDescriptorSetLayoutCreateInfo layout_info{};
         layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         layout_info.bindingCount = bindings.size();
         layout_info.pBindings = bindings.data();
+        layout_info.pNext = &binding_flags_create;
 
         if (vkCreateDescriptorSetLayout(*vulkan_device_, &layout_info, nullptr, &descriptor_set_layout_) != VK_SUCCESS) {
             throw std::runtime_error("Failed to create descriptor set layout!");
@@ -558,12 +569,17 @@ private:
         color_blending.blendConstants[2] = 0.0f; // Optional
         color_blending.blendConstants[3] = 0.0f; // Optional
 
+        VkPushConstantRange push_constant_range{};
+        push_constant_range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        push_constant_range.offset = 0;
+        push_constant_range.size = sizeof(SceneObjectPushConstant);
+
         VkPipelineLayoutCreateInfo pipeline_layout_info{};
         pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipeline_layout_info.setLayoutCount = 1;
         pipeline_layout_info.pSetLayouts = &descriptor_set_layout_;
-        pipeline_layout_info.pushConstantRangeCount = 0;
-        pipeline_layout_info.pPushConstantRanges = nullptr;
+        pipeline_layout_info.pushConstantRangeCount = 1;
+        pipeline_layout_info.pPushConstantRanges = &push_constant_range;
 
         if (vkCreatePipelineLayout(*vulkan_device_, &pipeline_layout_info, nullptr, &pipeline_layout_) != VK_SUCCESS) {
             throw std::runtime_error("Failed to create pipeline layout!");

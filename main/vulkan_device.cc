@@ -99,11 +99,22 @@ void VulkanDevice::createLogicalDevice() {
     VkPhysicalDeviceFeatures device_features{};
     device_features.samplerAnisotropy = VK_TRUE;
 
+    VkPhysicalDeviceDescriptorIndexingFeatures indexing_features{};
+    indexing_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+    indexing_features.descriptorBindingPartiallyBound = VK_TRUE;
+
+    VkPhysicalDeviceFeatures2 device_features_ext{};
+    device_features_ext.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    device_features_ext.features = device_features;
+    device_features_ext.pNext = &indexing_features;
+
     VkDeviceCreateInfo create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     create_info.pQueueCreateInfos = queue_create_infos.data();
     create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
-    create_info.pEnabledFeatures = &device_features;
+    create_info.pEnabledFeatures = nullptr;
+    create_info.pNext = &device_features_ext;
+    
 
     create_info.enabledExtensionCount = kDeviceExtensions.size();
     create_info.ppEnabledExtensionNames = kDeviceExtensions.data();
