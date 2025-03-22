@@ -42,3 +42,7 @@ void Scene::setScreenSize(size_t width, size_t height) {
 void Scene::moveCamera(float dx, float dy) {
     camera_.move(dx, dy);
 }
+
+void Scene::rotateCamera(float dx, float dy) {
+    camera_.rotateBy(dx, dy);
+}

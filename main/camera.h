@@ -14,8 +14,10 @@ public:
     float getAspectRatio() const;
     void setScreenSize(size_t width, size_t height);
     void move(float dx, float dy);
+    void rotateBy(float d_yaw_, float d_pitch_);
 
 private:
+    void computeDirection();
     size_t width_;
     size_t height_;
 
@@ -23,6 +25,9 @@ private:
     float fov_y_ = 45.0f;
     float near_clip_ = 0.1f;
     float far_clip_ = 10000.0f;
+
+    float yaw_ = -90.0f;
+    float pitch_ = 0.0f;
 
     glm::vec3 camera_pos_ = glm::vec3(0.0f, 25.0f, 180.0f);
     glm::vec3 camera_direction_ = glm::vec3(0.0f, 0.0f, 0.0f) - camera_pos_;

@@ -77,10 +77,16 @@ public:
 
 private:
     void cursorEvent(double x_pos, double y_pos) {
-        if (left_mouse_button_down) {
+        if (left_mouse_button_down_) {
             float dx = x_pos - mouse_x;
             float dy = y_pos - mouse_y;
             scene_.moveCamera(dx, -dy);
+        }
+
+        if (right_mouse_button_down_) {
+            float dx = x_pos - mouse_x;
+            float dy = y_pos - mouse_y;
+            scene_.rotateCamera(dx, -dy);
         }
 
         mouse_x = x_pos;
@@ -90,16 +96,25 @@ private:
     void mouseEvent(int key, int event) {
         if (key == GLFW_MOUSE_BUTTON_1) {
             if (event == GLFW_PRESS) { 
-                left_mouse_button_down = true;
+                left_mouse_button_down_ = true;
             }
 
             if (event == GLFW_RELEASE) {
-                left_mouse_button_down = false;
+                left_mouse_button_down_ = false;
+            }
+        } else if (key == GLFW_MOUSE_BUTTON_2) {
+            if (event == GLFW_PRESS) { 
+                right_mouse_button_down_ = true;
+            }
+
+            if (event == GLFW_RELEASE) {
+                right_mouse_button_down_ = false;
             }
         }
     }
 
-    bool left_mouse_button_down = false;
+    bool left_mouse_button_down_ = false;
+    bool right_mouse_button_down_ = false;
     float mouse_x;
     float mouse_y;
 
