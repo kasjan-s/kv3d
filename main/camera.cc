@@ -39,6 +39,10 @@ void Camera::rotateBy(float d_yaw_, float d_pitch_) {
     computeDirection();
 }
 
+glm::vec3 Camera::getPosition() const {
+    return camera_pos_;
+}
+
 void Camera::computeDirection() {
     glm::vec3 direction;
     direction.x = std::cos(glm::radians(yaw_)) * std::cos(glm::radians(pitch_));

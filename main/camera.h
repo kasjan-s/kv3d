@@ -15,6 +15,7 @@ public:
     void setScreenSize(size_t width, size_t height);
     void move(float dx, float dy);
     void rotateBy(float d_yaw_, float d_pitch_);
+    glm::vec3 getPosition() const;
 
 private:
     void computeDirection();

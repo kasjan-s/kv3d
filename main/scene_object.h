@@ -16,8 +16,10 @@ struct UniformBufferObject {
 };
 
 struct SceneObjectPushConstant {
-    VkBool32 is_textured_;
-    alignas(16) glm::vec4 color_;
+    alignas(16) glm::vec3 light_color_ = glm::vec3(1.0f, 1.0f, 1.0f);
+    alignas(16) glm::vec3 light_pos_;
+    alignas(16) glm::vec3 camera_pos_;
+    alignas(4) VkBool32 is_textured_;
 };
 
 class SceneObject {
@@ -30,7 +32,7 @@ public:
     
     void loadModel(const std::string& model_path);
     void loadTexture(const std::string& texture_path);
-    void draw(VkCommandBuffer command_buffer, VkPipelineLayout pipeline_layout, uint32_t image_index);
+    void draw(VkCommandBuffer command_buffer, VkPipelineLayout pipeline_layout, uint32_t image_index, const glm::vec3& camera_position);
     UniformBufferObject getMatrices();
     void createUniformBuffers(int buffer_count);
     void updateUniformBuffer(uint32_t image_index, const Camera& camera);

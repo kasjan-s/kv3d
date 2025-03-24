@@ -23,7 +23,7 @@ void Scene::createDescriptorSets(VkDescriptorSetLayout descriptor_set_layout) {
 
 void Scene::draw(VkCommandBuffer command_buffer, VkPipelineLayout pipeline_layout, uint32_t image_index) {
     for (auto& object : scene_objects_) {
-        object->draw(command_buffer, pipeline_layout, image_index);
+        object->draw(command_buffer, pipeline_layout, image_index, camera_.getPosition());
     }
 }
 

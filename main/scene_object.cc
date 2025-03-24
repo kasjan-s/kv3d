@@ -15,15 +15,21 @@ void SceneObject::loadModel(const std::string& model_path) {
 void SceneObject::loadTexture(const std::string& texture_path) {
     if (texture_path.empty()) {
         push_constants_.is_textured_ = VK_FALSE;
-        push_constants_.color_ = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
     } else {
         push_constants_.is_textured_ = VK_TRUE;
         texture_ = Texture::createFromFile(texture_path.c_str(), device_);
     }
 }
 
-void SceneObject::draw(VkCommandBuffer command_buffer, VkPipelineLayout pipeline_layout, uint32_t image_index) {
+void SceneObject::draw(VkCommandBuffer command_buffer, VkPipelineLayout pipeline_layout, uint32_t image_index, const glm::vec3& camera_position) {
+    static auto s_start_time = std::chrono::high_resolution_clock::now();
+
+    auto current_time = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - s_start_time).count();
+
     updateDescriptorSets();
+    push_constants_.light_pos_ = glm::vec3(std::sin(time) * 200.0f, 200.f, std::cos(time) * 200.0f);
+    push_constants_.camera_pos_ = camera_position;
     vkCmdPushConstants(command_buffer, pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SceneObjectPushConstant), &push_constants_);
     model_->draw(command_buffer, pipeline_layout, descriptor_sets_[image_index]);
 }

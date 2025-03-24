@@ -242,6 +242,7 @@ private:
         scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, "main/textures/Blue_Marble_002_COLOR.png", glm::vec3(-50.0f, 0.0f, 0.0f));
         scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, "main/textures/brick_color_map.png", glm::vec3(0.0f, 20.0f, 0.0f));
         scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, "", glm::vec3(50.0f, 0.0f, 0.0f));
+        scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, "", glm::vec3(200.0f, 200.0f, 0.0f));
         scene_.createObject(vulkan_device_.get(), PLANE_MODEL_PATH, "main/textures/Stone_Tiles_003_COLOR.png", glm::vec3(0.0f, -25.0f, 0.0f));
         scene_.createDescriptorSets(descriptor_set_layout_);
 
@@ -268,7 +269,16 @@ private:
         sampler_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
         bindings_flags.push_back(VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT);
 
-        std::array<VkDescriptorSetLayoutBinding, 2> bindings = {ubo_layout_binding, sampler_layout_binding};
+        VkDescriptorSetLayoutBinding material_layout_binding{};
+        material_layout_binding.binding = 2;
+        material_layout_binding.descriptorCount = 1;
+        material_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        material_layout_binding.pImmutableSamplers = nullptr;
+        material_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        bindings_flags.push_back(VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT);
+
+
+        std::array<VkDescriptorSetLayoutBinding, 3> bindings = {ubo_layout_binding, sampler_layout_binding, material_layout_binding};
 
         VkDescriptorSetLayoutBindingFlagsCreateInfo binding_flags_create{};
         binding_flags_create.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
