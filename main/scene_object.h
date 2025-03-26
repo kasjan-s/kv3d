@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "main/camera.h"
+#include "main/material.h"
 #include "main/model.h"
 #include "main/texture.h"
 #include "main/vulkan_device.h"
@@ -16,9 +17,15 @@ struct UniformBufferObject {
 };
 
 struct SceneObjectPushConstant {
-    alignas(16) glm::vec3 light_color_ = glm::vec3(1.0f, 1.0f, 1.0f);
+    alignas(16) glm::vec3 light_ambient = glm::vec3(1.0f, 1.0f, 1.0f);
+    alignas(16) glm::vec3 light_diffuse = glm::vec3(1.0f, 1.0f, 1.0f);
+    alignas(16) glm::vec3 light_specular = glm::vec3(1.0f, 1.0f, 1.0f);
     alignas(16) glm::vec3 light_pos_;
     alignas(16) glm::vec3 camera_pos_;
+    alignas(16) glm::vec3 ambient = glm::vec3(1.0f);
+    alignas(16) glm::vec3 diffuse = glm::vec3(1.0f);
+    alignas(16) glm::vec3 specular = glm::vec3(1.0f);
+    alignas(4) float shininess = 32.0f;
     alignas(4) VkBool32 is_textured_;
 };
 
@@ -32,6 +39,7 @@ public:
     
     void loadModel(const std::string& model_path);
     void loadTexture(const std::string& texture_path);
+    void setMaterial(MaterialType material);
     void draw(VkCommandBuffer command_buffer, VkPipelineLayout pipeline_layout, uint32_t image_index, const glm::vec3& camera_position);
     UniformBufferObject getMatrices();
     void createUniformBuffers(int buffer_count);

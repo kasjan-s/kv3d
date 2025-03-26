@@ -21,6 +21,15 @@ void SceneObject::loadTexture(const std::string& texture_path) {
     }
 }
 
+void SceneObject::setMaterial(MaterialType material_type) {
+    std::unique_ptr<Material> material = getMaterial(material_type);
+    push_constants_.is_textured_ = VK_FALSE;
+    push_constants_.ambient = material->ambient();
+    push_constants_.diffuse = material->diffuse();
+    push_constants_.specular = material->specular();
+    push_constants_.shininess = material->shininess();
+}
+
 void SceneObject::draw(VkCommandBuffer command_buffer, VkPipelineLayout pipeline_layout, uint32_t image_index, const glm::vec3& camera_position) {
     static auto s_start_time = std::chrono::high_resolution_clock::now();
 

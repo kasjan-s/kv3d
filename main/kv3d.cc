@@ -240,9 +240,10 @@ private:
         VkExtent2D extent = swapchain_->getExtent();
         scene_.setScreenSize(extent.width, extent.height);
         scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, "main/textures/Blue_Marble_002_COLOR.png", glm::vec3(-50.0f, 0.0f, 0.0f));
-        scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, "main/textures/brick_color_map.png", glm::vec3(0.0f, 20.0f, 0.0f));
-        scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, "", glm::vec3(50.0f, 0.0f, 0.0f));
-        scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, "", glm::vec3(200.0f, 200.0f, 0.0f));
+        scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, "main/textures/brick_color_map.png", glm::vec3(0.0f, 0.0f, 0.0f));
+        scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, MaterialType::kPlastic, glm::vec3(50.0f, 0.0f, 0.0f));
+        scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, MaterialType::kEmerald, glm::vec3(50.0f, 50.0f, 0.0f));
+        scene_.createObject(vulkan_device_.get(), SPHERE_MODEL_PATH, MaterialType::kGold, glm::vec3(0.0f, 50.0f, 0.0f));
         scene_.createObject(vulkan_device_.get(), PLANE_MODEL_PATH, "main/textures/Stone_Tiles_003_COLOR.png", glm::vec3(0.0f, -25.0f, 0.0f));
         scene_.createDescriptorSets(descriptor_set_layout_);
 

@@ -10,6 +10,17 @@ void Scene::createObject(VulkanDevice* device, const std::string& model_path, co
     objects_container_.insert(std::move(object));
 }
 
+void Scene::createObject(VulkanDevice* device, const std::string& model_path, MaterialType material, glm::vec3 pos, uint32_t frames) {
+    std::unique_ptr<SceneObject> object = std::make_unique<SceneObject>(device);
+    object->loadModel(model_path);
+    object->setMaterial(material);
+    object->createUniformBuffers(frames);
+    object->setPos(pos);
+    scene_objects_.push_back(object.get());
+    objects_container_.insert(std::move(object));
+}
+
+
 void Scene::clear() {
     scene_objects_.clear();
     objects_container_.clear();

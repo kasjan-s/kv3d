@@ -25,10 +25,20 @@ struct Vertex {
 
 namespace std {
     template<> struct hash<Vertex> {
+        // Copilot hash generated hash function.
         size_t operator()(Vertex const& vertex) const {
-            return ((hash<glm::vec3>()(vertex.pos) ^
-                   (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
-                   (hash<glm::vec2>()(vertex.tex_coords) << 1);
+            size_t hash_pos = hash<glm::vec3>()(vertex.pos);
+            size_t hash_color = hash<glm::vec3>()(vertex.color);
+            size_t hash_tex_coords = hash<glm::vec2>()(vertex.tex_coords);
+            size_t hash_normal = hash<glm::vec3>()(vertex.normal);
+
+            // Combine using a common bit-mixing pattern
+            size_t hash_result = hash_pos;
+            hash_result ^= hash_color + 0x9e3779b9 + (hash_result << 6) + (hash_result >> 2);
+            hash_result ^= hash_tex_coords + 0x9e3779b9 + (hash_result << 6) + (hash_result >> 2);
+            hash_result ^= hash_normal + 0x9e3779b9 + (hash_result << 6) + (hash_result >> 2);
+
+            return hash_result;
         }
     };
 }
